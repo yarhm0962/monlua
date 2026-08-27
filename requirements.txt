@@ -1,0 +1,7 @@
+discord.py
+aiohttp
+pymongo
+requests
+flask
+beautifulsoup4
+lxml
