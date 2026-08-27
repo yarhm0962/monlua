@@ -41,23 +41,23 @@ def after_request(response):
     return response
 
 @app.route('/')
-def home(): return "âœ… RblXLua Service Running"
+def home(): return "✅ RblXLua Service Running"
 @app.route('/ping')
 def ping(): return "pong"
 
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
-    print("âŒ TOKEN missing")
+    print("❌ TOKEN missing")
     sys.exit(1)
 
 MONGODB_URI = os.getenv("MONGODB_URI")
 if not MONGODB_URI:
-    print("âŒ MONGODB_URI missing")
+    print("❌ MONGODB_URI missing")
     sys.exit(1)
 
 GUILD_ID = int(os.getenv("GUILD_ID", 0))
 if not GUILD_ID:
-    print("âŒ GUILD_ID missing or invalid")
+    print("❌ GUILD_ID missing or invalid")
     sys.exit(1)
 
 OWNER_ID = 1445289457866506290
@@ -89,9 +89,9 @@ try:
     verified_users_col = db["verified_users"]
     timer_delete_config_col = db["timer_delete_config"]
     talking_bot_config_col = db["talking_bot_config"]
-    print("âœ… MongoDB Connected")
+    print("✅ MongoDB Connected")
 except Exception as e:
-    print(f"âŒ MongoDB Error: {e}")
+    print(f"❌ MongoDB Error: {e}")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -130,7 +130,7 @@ async def start_timer_delete_timer(channel_id, duration_seconds):
             count = len(deleted)
             if count > 0:
                 embed = discord.Embed(
-                    title="ðŸ§¹ Timer Delete Triggered",
+                    title="🧹 Timer Delete Triggered",
                     description=f"Deleted **{count}** messages in {channel.mention} due to inactivity.",
                     color=0x90EE90
                 )
@@ -238,7 +238,7 @@ async def active_checker(
         existing_interval = existing.get("interval")
         if existing_channel_id == channel.id and existing_interval == interval:
             await interaction.response.send_message(
-                "âŒ You already have an Active Checker set up with the same time and channel. "
+                "❌ You already have an Active Checker set up with the same time and channel. "
                 "To change it, use a different time or channel.",
                 ephemeral=True
             )
@@ -258,7 +258,7 @@ async def active_checker(
     active_checker_tasks[guild_id] = task
 
     embed = discord.Embed(
-        title="âœ… Active Checker Set Up",
+        title="✅ Active Checker Set Up",
         description=f"Will ping @everyone in {channel.mention} every **{time}** with an active check message.",
         color=0x1e90ff
     )
@@ -292,20 +292,20 @@ async def active_checker_loop(guild_id, channel_id, interval_seconds):
                 break
 
             embed = discord.Embed(
-                title="ðŸŸ¢ Active Check",
+                title="🟢 Active Check",
                 description="Active check. I just want y'all to check if you are Active. React so we know if y'all is Active.",
                 color=0x1e90ff
             )
             embed.set_footer(text="Powered by MonLua Bot")
             msg = await channel.send(content="@everyone", embed=embed)
-            await msg.add_reaction("âœ…")
+            await msg.add_reaction("✅")
             await asyncio.sleep(interval_seconds)
         except Exception as e:
             print(f"Active checker error: {e}")
             await asyncio.sleep(60)
 
 class PersistentTicketPanel(discord.ui.View):
-    def __init__(self, panel_id, button_label="Open Ticket", button_emoji="ðŸŽŸï¸", button_style=discord.ButtonStyle.gray):
+    def __init__(self, panel_id, button_label="Open Ticket", button_emoji="🎟️", button_style=discord.ButtonStyle.gray):
         super().__init__(timeout=None)
         self.panel_id = panel_id
         button = discord.ui.Button(
@@ -323,7 +323,7 @@ class PersistentTicketPanel(discord.ui.View):
         try:
             panel = await asyncio.to_thread(ticket_panels_col.find_one, {"_id": ObjectId(self.panel_id)})
             if not panel:
-                await interaction.followup.send("âŒ This ticket panel is no longer valid.", ephemeral=True)
+                await interaction.followup.send("❌ This ticket panel is no longer valid.", ephemeral=True)
                 return
 
             existing = await asyncio.to_thread(tickets_col.find_one, {
@@ -340,7 +340,7 @@ class PersistentTicketPanel(discord.ui.View):
                     )
                     existing = None
                 else:
-                    await interaction.followup.send("âŒ You already have an open ticket. Please close it before opening a new one.", ephemeral=True)
+                    await interaction.followup.send("❌ You already have an open ticket. Please close it before opening a new one.", ephemeral=True)
                     return
 
             guild = interaction.guild
@@ -376,8 +376,8 @@ class PersistentTicketPanel(discord.ui.View):
             mention_text = " ".join([f"<@&{rid}>" for rid in ping_role_ids]) if ping_role_ids else None
 
             embed_ticket = discord.Embed(
-                title="ðŸŽŸï¸ Ticket Created",
-                description=f"{interaction.user.mention} has created a New Ticket ðŸŽŸï¸.",
+                title="🎟️ Ticket Created",
+                description=f"{interaction.user.mention} has created a New Ticket 🎟️.",
                 color=panel.get("color", 0x2b2d31)
             )
             embed_ticket.set_footer(text=panel.get("footer_text", "Made by MonLua Bot"), icon_url=bot.user.display_avatar.url)
@@ -410,12 +410,12 @@ class PersistentTicketPanel(discord.ui.View):
             )
             jump_view.add_item(jump_button)
 
-            await interaction.followup.send("âœ… Ticket Created", view=jump_view, ephemeral=True)
+            await interaction.followup.send("✅ Ticket Created", view=jump_view, ephemeral=True)
 
         except Exception as e:
             print(f"Ticket creation error: {e}")
             try:
-                await interaction.followup.send(f"âŒ An error occurred while creating your ticket: {str(e)[:200]}", ephemeral=True)
+                await interaction.followup.send(f"❌ An error occurred while creating your ticket: {str(e)[:200]}", ephemeral=True)
             except:
                 pass
 
@@ -428,7 +428,7 @@ class TicketView(discord.ui.View):
         close_button = discord.ui.Button(
             label="Close",
             style=discord.ButtonStyle.danger,
-            emoji="ðŸ”’",
+            emoji="🔒",
             custom_id=f"close_ticket:{ticket_id}"
         )
         close_button.callback = self.close_callback
@@ -440,7 +440,7 @@ class TicketView(discord.ui.View):
         claim_button = discord.ui.Button(
             label="Claim",
             style=discord.ButtonStyle.gray,
-            emoji="ðŸ“œ",
+            emoji="📜",
             custom_id=f"claim_ticket:{ticket_id}",
             disabled=claim_disabled
         )
@@ -451,12 +451,12 @@ class TicketView(discord.ui.View):
         ticket_id = interaction.data["custom_id"].split(":")[1]
         ticket = await asyncio.to_thread(tickets_col.find_one, {"_id": ObjectId(ticket_id)})
         if not ticket:
-            await interaction.response.send_message("âŒ Ticket not found.", ephemeral=True)
+            await interaction.response.send_message("❌ Ticket not found.", ephemeral=True)
             return
 
         panel = await asyncio.to_thread(ticket_panels_col.find_one, {"_id": ObjectId(ticket["panel_id"])})
         if not panel:
-            await interaction.response.send_message("âŒ Panel config not found.", ephemeral=True)
+            await interaction.response.send_message("❌ Panel config not found.", ephemeral=True)
             return
 
         ping_role_ids = []
@@ -473,11 +473,11 @@ class TicketView(discord.ui.View):
                 has_permission = True
                 break
         if not has_permission:
-            await interaction.response.send_message("âŒ You are not able to claim this ticket. Only admins with the configured ping roles can claim.", ephemeral=True)
+            await interaction.response.send_message("❌ You are not able to claim this ticket. Only admins with the configured ping roles can claim.", ephemeral=True)
             return
 
         if ticket.get("claimed_by"):
-            await interaction.response.send_message(f"âŒ This ticket is already claimed by <@{ticket['claimed_by']}>.", ephemeral=True)
+            await interaction.response.send_message(f"❌ This ticket is already claimed by <@{ticket['claimed_by']}>.", ephemeral=True)
             return
 
         await asyncio.to_thread(tickets_col.update_one,
@@ -489,7 +489,7 @@ class TicketView(discord.ui.View):
         if channel:
             creator_mention = f"<@{ticket['user_id']}>"
             embed_claim = discord.Embed(
-                title="ðŸ–ï¸ Ticket Claimed",
+                title="🖐️ Ticket Claimed",
                 description=f"{interaction.user.mention} Has been claimed your ticket.",
                 color=discord.Color.green()
             )
@@ -499,7 +499,7 @@ class TicketView(discord.ui.View):
                 async for msg in channel.history(limit=10):
                     if msg.author == bot.user and msg.embeds:
                         embed_obj = msg.embeds[0]
-                        if embed_obj.title == "ðŸŽŸï¸ Ticket Created":
+                        if embed_obj.title == "🎟️ Ticket Created":
                             new_embed = discord.Embed.from_dict(embed_obj.to_dict())
                             new_embed.description = f"{new_embed.description}\n\n**Claimed by:** {interaction.user.mention}"
                             await msg.edit(embed=new_embed)
@@ -512,7 +512,7 @@ class TicketView(discord.ui.View):
             close_button = discord.ui.Button(
                 label="Close",
                 style=discord.ButtonStyle.danger,
-                emoji="ðŸ”’",
+                emoji="🔒",
                 custom_id=f"close_ticket:{ticket_id}"
             )
             close_button.callback = new_view.close_callback
@@ -520,7 +520,7 @@ class TicketView(discord.ui.View):
             claim_button = discord.ui.Button(
                 label="Claim",
                 style=discord.ButtonStyle.gray,
-                emoji="ðŸ“œ",
+                emoji="📜",
                 custom_id=f"claim_ticket:{ticket_id}",
                 disabled=True
             )
@@ -534,18 +534,18 @@ class TicketView(discord.ui.View):
             except:
                 pass
 
-        await interaction.response.send_message("âœ… Successfully Claimed the ticket", ephemeral=True)
+        await interaction.response.send_message("✅ Successfully Claimed the ticket", ephemeral=True)
 
     async def close_callback(self, interaction: discord.Interaction):
         ticket_id = interaction.data["custom_id"].split(":")[1]
         ticket = await asyncio.to_thread(tickets_col.find_one, {"_id": ObjectId(ticket_id)})
         if not ticket:
-            await interaction.response.send_message("âŒ Ticket not found.", ephemeral=True)
+            await interaction.response.send_message("❌ Ticket not found.", ephemeral=True)
             return
 
         panel = await asyncio.to_thread(ticket_panels_col.find_one, {"_id": ObjectId(ticket["panel_id"])})
         if not panel:
-            await interaction.response.send_message("âŒ Panel config not found.", ephemeral=True)
+            await interaction.response.send_message("❌ Panel config not found.", ephemeral=True)
             return
 
         ping_role_ids = []
@@ -562,7 +562,7 @@ class TicketView(discord.ui.View):
                 has_permission = True
                 break
         if not has_permission and interaction.user.id != ticket["user_id"] and interaction.user.id != ticket.get("claimed_by"):
-            await interaction.response.send_message("âŒ You are not able to close this ticket. Only the ticket creator, the claimer, or admins with the configured ping roles can close.", ephemeral=True)
+            await interaction.response.send_message("❌ You are not able to close this ticket. Only the ticket creator, the claimer, or admins with the configured ping roles can close.", ephemeral=True)
             return
 
         channel = interaction.guild.get_channel(ticket["channel_id"])
@@ -589,17 +589,17 @@ class TicketView(discord.ui.View):
         except Exception as e:
             print(f"Failed to DM user: {e}")
 
-        await interaction.response.send_message("âœ… Ticket closed.", ephemeral=True)
+        await interaction.response.send_message("✅ Ticket closed.", ephemeral=True)
 
 @bot.tree.command(name="ticket", description="Create a ticket panel")
 @app_commands.describe(
     ping_role="The role to ping when a ticket is created",
     enable_claim_button="Enable the Claim button for tickets",
-    description="Panel description (default: Open the ticket below ðŸŽŸï¸)",
+    description="Panel description (default: Open the ticket below 🎟️)",
     footer="Footer text (default: Made by MonLua Bot)",
     color="Embed color (hex code or name, default: #2b2d31)",
     label_button="Button label (default: Open Ticket)",
-    label_emoji="Button emoji (default: ðŸŽŸï¸)",
+    label_emoji="Button emoji (default: 🎟️)",
     label_color="Button color (gray, blurple, green, red, default: gray)",
     ping_role_2="Additional role to ping (optional)",
     ping_role_3="Additional role to ping (optional)",
@@ -610,11 +610,11 @@ async def ticket_command(
     interaction: discord.Interaction,
     ping_role: discord.Role,
     enable_claim_button: bool,
-    description: str = "Open the ticket below ðŸŽŸï¸",
+    description: str = "Open the ticket below 🎟️",
     footer: str = "Made by MonLua Bot",
     color: str = "#2b2d31",
     label_button: str = "Open Ticket",
-    label_emoji: str = "ðŸŽŸï¸",
+    label_emoji: str = "🎟️",
     label_color: str = "gray",
     ping_role_2: discord.Role = None,
     ping_role_3: discord.Role = None,
@@ -628,7 +628,7 @@ async def ticket_command(
             color_val = int(color[1:], 16)
         except ValueError:
             await interaction.followup.send(
-                "âŒ Invalid hex color code. Please use a valid hex code (e.g., #ff0000).\nAvailable color names: `dark_magenta, light_grey, orange, gold, red, blue, dark_theme, darker_grey, blurple, yellow, greyple, magenta, dark_grey, default, dark_gold, green, dark_green, dark_orange, teal, dark_purple, purple, pink, lighter_grey, fuchsia, dark_red, dark_blue, dark_teal`",
+                "❌ Invalid hex color code. Please use a valid hex code (e.g., #ff0000).\nAvailable color names: `dark_magenta, light_grey, orange, gold, red, blue, dark_theme, darker_grey, blurple, yellow, greyple, magenta, dark_grey, default, dark_gold, green, dark_green, dark_orange, teal, dark_purple, purple, pink, lighter_grey, fuchsia, dark_red, dark_blue, dark_teal`",
                 ephemeral=True
             )
             return
@@ -642,7 +642,7 @@ async def ticket_command(
         ]
         if color.lower() not in valid_colors:
             await interaction.followup.send(
-                f"âŒ Wrong color name. Please use a valid color name.\nAvailable colors: `{', '.join(valid_colors)}`",
+                f"❌ Wrong color name. Please use a valid color name.\nAvailable colors: `{', '.join(valid_colors)}`",
                 ephemeral=True
             )
             return
@@ -679,14 +679,14 @@ async def ticket_command(
     panel_id = str(result.inserted_id)
 
     embed = discord.Embed(
-        title="ðŸŽ« Ticket System",
+        title="🎫 Ticket System",
         description=description,
         color=color_val
     )
     embed.set_footer(text=footer, icon_url=bot.user.display_avatar.url)
 
     view = PersistentTicketPanel(panel_id, label_button, label_emoji, button_style)
-    await interaction.followup.send("âœ… Successfully created a ticket panel", ephemeral=True)
+    await interaction.followup.send("✅ Successfully created a ticket panel", ephemeral=True)
     await interaction.channel.send(embed=embed, view=view)
     bot.add_view(view)
 
@@ -697,7 +697,7 @@ class VerificationButton(discord.ui.View):
             label="Verify",
             style=discord.ButtonStyle.primary,
             custom_id="verify_button",
-            emoji="âœ…"
+            emoji="✅"
         )
         button.callback = self.verify_callback
         self.add_item(button)
@@ -709,7 +709,7 @@ class VerificationButton(discord.ui.View):
 
         config = await asyncio.to_thread(verification_config_col.find_one, {"guild_id": guild.id})
         if not config:
-            await interaction.followup.send("âŒ Verification system is not set up in this server.", ephemeral=True)
+            await interaction.followup.send("❌ Verification system is not set up in this server.", ephemeral=True)
             return
 
         verified_role_id = config.get("verified_role_id")
@@ -719,27 +719,27 @@ class VerificationButton(discord.ui.View):
         not_verified_role = guild.get_role(not_verified_role_id) if not_verified_role_id else None
 
         if not verified_role:
-            await interaction.followup.send("âŒ Verified role is missing. Please re-run /verification_system.", ephemeral=True)
+            await interaction.followup.send("❌ Verified role is missing. Please re-run /verification_system.", ephemeral=True)
             return
 
         if verified_role in member.roles:
-            await interaction.followup.send("âœ… You are already verified!", ephemeral=True)
+            await interaction.followup.send("✅ You are already verified!", ephemeral=True)
             return
 
         try:
             await member.add_roles(verified_role, reason="Verified via button")
             if not_verified_role and not_verified_role in member.roles:
                 await member.remove_roles(not_verified_role, reason="Verified via button")
-            await interaction.followup.send(f"âœ… You have been verified! You now have the {verified_role.mention} role.", ephemeral=True)
+            await interaction.followup.send(f"✅ You have been verified! You now have the {verified_role.mention} role.", ephemeral=True)
             await asyncio.to_thread(verified_users_col.update_one,
                 {"guild_id": guild.id, "user_id": member.id},
                 {"$set": {"verified_at": datetime.utcnow(), "verified_by": "button"}},
                 upsert=True
             )
         except discord.Forbidden:
-            await interaction.followup.send("âŒ I don't have permission to assign roles. Please check my permissions.", ephemeral=True)
+            await interaction.followup.send("❌ I don't have permission to assign roles. Please check my permissions.", ephemeral=True)
         except Exception as e:
-            await interaction.followup.send(f"âŒ An error occurred: {str(e)[:200]}", ephemeral=True)
+            await interaction.followup.send(f"❌ An error occurred: {str(e)[:200]}", ephemeral=True)
 
 async def apply_not_verified_to_all(guild_id, not_verified_role_id):
     guild = bot.get_guild(guild_id)
@@ -826,16 +826,16 @@ async def verification_system(
     guild = interaction.guild
 
     if not interaction.guild.me.guild_permissions.manage_roles:
-        await interaction.followup.send("âŒ I need the 'Manage Roles' permission to set up verification.", ephemeral=True)
+        await interaction.followup.send("❌ I need the 'Manage Roles' permission to set up verification.", ephemeral=True)
         return
     if not interaction.guild.me.guild_permissions.manage_channels:
-        await interaction.followup.send("âŒ I need the 'Manage Channels' permission to set up verification.", ephemeral=True)
+        await interaction.followup.send("❌ I need the 'Manage Channels' permission to set up verification.", ephemeral=True)
         return
 
     bot_top_role = interaction.guild.me.top_role
     if bot_top_role <= select_role:
         await interaction.followup.send(
-            "âŒ My highest role is not above the selected verification role. "
+            "❌ My highest role is not above the selected verification role. "
             "Please move my role higher in the role hierarchy, or choose a lower role.",
             ephemeral=True
         )
@@ -851,7 +851,7 @@ async def verification_system(
                 mentionable=False
             )
         except discord.Forbidden:
-            await interaction.followup.send("âŒ I don't have permission to create roles.", ephemeral=True)
+            await interaction.followup.send("❌ I don't have permission to create roles.", ephemeral=True)
             return
 
     async def update_channel_perms(channel_obj):
@@ -900,7 +900,7 @@ async def verification_system(
     deadline = int(time.time()) + DEFAULT_VERIFICATION_DURATION
 
     embed = discord.Embed(
-        title="ðŸ” Server Verification",
+        title="🔐 Server Verification",
         description=(
             "Welcome to the server! We are glad to Have you here.\n\n"
             "To gain access to all the channels and features, please verify yourself by clicking the **Verify** button below.\n"
@@ -910,7 +910,7 @@ async def verification_system(
     )
     embed.set_footer(text="Verification System")
     embed.add_field(
-        name="â³ Verification Deadline",
+        name="⏳ Verification Deadline",
         value=f"All members must verify before <t:{deadline}:R>.\nAfter that, unverified members will receive the **Not Verified** role.",
         inline=False
     )
@@ -934,12 +934,12 @@ async def verification_system(
     )
 
     response = (
-        f"âœ… Verification system set up!\n"
+        f"✅ Verification system set up!\n"
         f"Not Verified role: {not_verified_role.mention}\n"
         f"Verified role: {select_role.mention}\n"
         f"Verification channel: {channel.mention}\n"
         f"Assigned Not Verified role to {members_assigned} members.\n"
-        f"â³ Deadline set: <t:{deadline}:R> (auto 24 hours)"
+        f"⏳ Deadline set: <t:{deadline}:R> (auto 24 hours)"
     )
     await interaction.followup.send(response, ephemeral=True)
 
@@ -951,7 +951,7 @@ async def verify_now(interaction: discord.Interaction):
 
     config = await asyncio.to_thread(verification_config_col.find_one, {"guild_id": guild.id})
     if not config:
-        await interaction.followup.send("âŒ Verification system is not set up in this server.", ephemeral=True)
+        await interaction.followup.send("❌ Verification system is not set up in this server.", ephemeral=True)
         return
 
     not_verified_role_id = config["not_verified_role_id"]
@@ -960,7 +960,7 @@ async def verify_now(interaction: discord.Interaction):
     verified_role = guild.get_role(verified_role_id)
 
     if not not_verified_role or not verified_role:
-        await interaction.followup.send("âŒ Verification roles are missing. Please re-run /verification_system.", ephemeral=True)
+        await interaction.followup.send("❌ Verification roles are missing. Please re-run /verification_system.", ephemeral=True)
         return
 
     count = 0
@@ -974,7 +974,7 @@ async def verify_now(interaction: discord.Interaction):
         count += 1
 
     if count == 0:
-        await interaction.followup.send("âœ… All members are already verified. No action needed.", ephemeral=True)
+        await interaction.followup.send("✅ All members are already verified. No action needed.", ephemeral=True)
         return
 
     total_seconds = count * 0.5
@@ -985,7 +985,7 @@ async def verify_now(interaction: discord.Interaction):
     else:
         time_str = f"{seconds} second{'s' if seconds != 1 else ''}"
 
-    msg = f"ðŸŒ€ Changing roles for **{count}** members. This will take **{time_str}**, in ideal condition. Please be patient."
+    msg = f"🌀 Changing roles for **{count}** members. This will take **{time_str}**, in ideal condition. Please be patient."
     await interaction.followup.send(msg, ephemeral=True)
 
     asyncio.create_task(apply_verification_roles(interaction, guild, not_verified_role, verified_role, count))
@@ -1013,7 +1013,7 @@ async def apply_verification_roles(interaction, guild, not_verified_role, verifi
 
     try:
         await interaction.followup.send(
-            f"âœ… Finished applying roles.\n"
+            f"✅ Finished applying roles.\n"
             f"**Assigned:** {assigned} members\n"
             f"**Errors:** {errors} members\n"
             f"**Total processed:** {count} members",
@@ -1043,7 +1043,7 @@ async def timer_delete_msg(
             timer_delete_timers[channel_id].cancel()
             del timer_delete_timers[channel_id]
         embed = discord.Embed(
-            title="â¹ï¸ Timer Delete Disabled",
+            title="⏹️ Timer Delete Disabled",
             description=f"Timer delete has been disabled for {channel.mention}.",
             color=0x90EE90
         )
@@ -1051,7 +1051,7 @@ async def timer_delete_msg(
         return
 
     if not time:
-        await interaction.response.send_message("âŒ Please provide a time duration when enabling timer delete.", ephemeral=True)
+        await interaction.response.send_message("❌ Please provide a time duration when enabling timer delete.", ephemeral=True)
         return
 
     try:
@@ -1061,15 +1061,15 @@ async def timer_delete_msg(
         return
 
     if duration < 5:
-        await interaction.response.send_message("âŒ Duration must be at least 5 seconds.", ephemeral=True)
+        await interaction.response.send_message("❌ Duration must be at least 5 seconds.", ephemeral=True)
         return
 
     if not interaction.guild.me.guild_permissions.manage_messages:
-        await interaction.response.send_message("âŒ I need 'Manage Messages' permission to delete messages.", ephemeral=True)
+        await interaction.response.send_message("❌ I need 'Manage Messages' permission to delete messages.", ephemeral=True)
         return
 
     if not channel.permissions_for(interaction.guild.me).manage_messages:
-        await interaction.response.send_message(f"âŒ I don't have permission to manage messages in {channel.mention}.", ephemeral=True)
+        await interaction.response.send_message(f"❌ I don't have permission to manage messages in {channel.mention}.", ephemeral=True)
         return
 
     guild_id = interaction.guild.id
@@ -1084,7 +1084,7 @@ async def timer_delete_msg(
     reset_timer_delete_timer(channel_id, duration)
 
     embed = discord.Embed(
-        title="âœ… Timer Delete Set Up",
+        title="✅ Timer Delete Set Up",
         description=f"Messages in {channel.mention} will be deleted after **{time}** of inactivity.\n"
                     f"Any new message resets the timer.",
         color=0x90EE90
@@ -1109,7 +1109,7 @@ async def talking_bot(
     if disable:
         await asyncio.to_thread(talking_bot_config_col.delete_one, {"guild_id": guild_id, "channel_id": channel_id})
         embed = discord.Embed(
-            title="â¹ï¸ Talking Bot Disabled",
+            title="⏹️ Talking Bot Disabled",
             description=f"The talking bot has been disabled for {channel.mention}.",
             color=0x90EE90
         )
@@ -1123,7 +1123,7 @@ async def talking_bot(
     )
 
     embed = discord.Embed(
-        title="âœ… Talking Bot Enabled",
+        title="✅ Talking Bot Enabled",
         description=f"I will now reply to messages in {channel.mention}.\n"
                     f"I can answer questions about Lua, exploits, Delta, and my commands.",
         color=0x90EE90
@@ -1135,14 +1135,14 @@ async def global_channel_check(ctx):
     if ctx.author.id == OWNER_ID:
         return True
     if ctx.guild is None:
-        await ctx.send("âš ï¸ You are not allowed to use commands in DMs.")
+        await ctx.send("⚠️ You are not allowed to use commands in DMs.")
         return False
     allowed = await get_allowed_channel()
     if allowed is None:
         return True
     if ctx.channel.id == allowed:
         return True
-    await ctx.send(f"âš ï¸ Commands are restricted to <#{allowed}>. Please use them there.")
+    await ctx.send(f"⚠️ Commands are restricted to <#{allowed}>. Please use them there.")
     return False
 
 @bot.tree.command(name="channel_set", description="Set the channel where commands are allowed")
@@ -1150,32 +1150,32 @@ async def global_channel_check(ctx):
 @app_commands.default_permissions(administrator=True)
 async def channel_set(interaction: discord.Interaction, channel: discord.TextChannel):
     await set_allowed_channel(channel.id)
-    await interaction.response.send_message(f"âœ… Commands are now restricted to {channel.mention}.", ephemeral=True)
+    await interaction.response.send_message(f"✅ Commands are now restricted to {channel.mention}.", ephemeral=True)
 
 @bot.tree.command(name="channel_view", description="View the currently allowed channel")
 async def channel_view(interaction: discord.Interaction):
     allowed = await get_allowed_channel()
     if allowed is None:
-        await interaction.response.send_message("â„¹ï¸ No channel restriction is set. Commands are allowed everywhere.", ephemeral=True)
+        await interaction.response.send_message("ℹ️ No channel restriction is set. Commands are allowed everywhere.", ephemeral=True)
     else:
         channel = bot.get_channel(allowed)
         if channel:
-            await interaction.response.send_message(f"â„¹ï¸ Commands are restricted to {channel.mention}.", ephemeral=True)
+            await interaction.response.send_message(f"ℹ️ Commands are restricted to {channel.mention}.", ephemeral=True)
         else:
-            await interaction.response.send_message(f"â„¹ï¸ Commands are restricted to a channel I cannot find (ID: {allowed}).", ephemeral=True)
+            await interaction.response.send_message(f"ℹ️ Commands are restricted to a channel I cannot find (ID: {allowed}).", ephemeral=True)
 
 @bot.tree.command(name="channel_clear", description="Remove the channel restriction")
 @app_commands.default_permissions(administrator=True)
 async def channel_clear(interaction: discord.Interaction):
     await clear_allowed_channel()
-    await interaction.response.send_message("âœ… Channel restriction removed. Commands are now allowed everywhere.", ephemeral=True)
+    await interaction.response.send_message("✅ Channel restriction removed. Commands are now allowed everywhere.", ephemeral=True)
 
 @bot.tree.command(name="ping", description="Check bot latency")
 async def slash_ping(interaction: discord.Interaction):
     start = time.perf_counter()
     api_latency = round(bot.latency * 1000)
     embed = discord.Embed(
-        title="ðŸ“ Pong!",
+        title="🏓 Pong!",
         color=0x2c3e99,
         description=f"**API Latency:** `{api_latency} ms`"
     )
@@ -1190,7 +1190,7 @@ async def prefix_ping(ctx):
     start = time.perf_counter()
     api_latency = round(bot.latency * 1000)
     embed = discord.Embed(
-        title="ðŸ“ Pong!",
+        title="🏓 Pong!",
         color=0x2c3e99,
         description=f"**API Latency:** `{api_latency} ms`"
     )
@@ -1199,21 +1199,80 @@ async def prefix_ping(ctx):
     embed.add_field(name="Response Time", value=f"`{response_time} ms`", inline=False)
     await ctx.reply(embed=embed, mention_author=True)
 
+class CmdsPaginationView(discord.ui.View):
+    def __init__(self, pages, author_id):
+        super().__init__(timeout=120)
+        self.pages = pages
+        self.current_page = 0
+        self.author_id = author_id
+        self.total_pages = len(pages)
+
+    def get_embed(self):
+        page_data = self.pages[self.current_page]
+        embed = discord.Embed(
+            title=page_data["title"],
+            description=page_data["description"],
+            color=0x9b59b6
+        )
+        for field in page_data.get("fields", []):
+            embed.add_field(name=field["name"], value=field["value"], inline=field.get("inline", False))
+        embed.set_footer(text=f"Page {self.current_page + 1}/{self.total_pages} • Owner can use commands anywhere. Channel restriction applies to others.")
+        return embed
+
+    @discord.ui.button(label="◀ Back", style=discord.ButtonStyle.secondary, custom_id="cmds_back")
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message("You are not the one who ran this command.", ephemeral=True)
+            return
+        if self.current_page == 0:
+            await interaction.response.send_message("You are already on the first page.", ephemeral=True)
+            return
+        self.current_page -= 1
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.primary, custom_id="cmds_next")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message("You are not the one who ran this command.", ephemeral=True)
+            return
+        if self.current_page == self.total_pages - 1:
+            await interaction.response.send_message("You are already on the last page.", ephemeral=True)
+            return
+        self.current_page += 1
+        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+        try:
+            await self.message.edit(view=self)
+        except:
+            pass
+
 @bot.command(name="cmds")
 async def show_commands(ctx):
     try:
-        embed = discord.Embed(
-            title="RblXLua Bot Commands",
-            description=f"**{ctx.author.mention}**",
-            color=0x2B2D31
-        )
-        embed.set_image(url="https://i.imgur.com/YOUR_IMAGE_ID.png")
-        embed.add_field(
-            name="",
-            value="Re-Launch the Updater or download the Updater from here: [Download](https://example.com)",
-            inline=False
-        )
-        await ctx.send(embed=embed, mention_author=True)
+        pages = [
+            {
+                "title": "RblXLua Bot Commands (1/2)",
+                "description": f"Hello {ctx.author.mention}",
+                "fields": [
+                    {"name": "`Deobfuscator [.get]`", "value": "Fetch and deobfuscate code from a URL, attachment, or reply. Multi‑layer auto‑detection with retry and proxy fallback.", "inline": False},
+                    {"name": "`Ping [.ping]`", "value": "Check the bot's latency (prefix version).", "inline": False},
+                    {"name": "`Database [.db]`", "value": "`status` – check MongoDB connection; `clear` (owner only) – wipe all data.", "inline": False},
+                ]
+            },
+            {
+                "title": "RblXLua Bot Commands (2/2)",
+                "description": f"Hello {ctx.author.mention}",
+                "fields": [
+                    {"name": "`Slash Commands`", "value": "`/ping` – Check bot latency\n`/channel_set` – Restrict commands to a channel\n`/channel_view` – Show current restriction\n`/channel_clear` – Remove restriction\n`/ticket` – Create ticket panel (admin)\n`/verification_system` – Set up verification with automatic 24h deadline (admin)\n`/verify` – Immediately apply Not Verified role to all unverified members (admin)\n`/active_checker` – Periodic @everyone ping (admin)\n`/bypass` – Bypass Delta/Platoboost/Lootlabs/Lootlink URLs\n`/auto_delete_messages` – Instant message deletion (admin)\n`/atd_view_channel` – View instant delete channels\n`/atd_remove_channel` – Remove instant delete channel (admin)\n`/timer_delete_msg` – Timer-based auto-delete (admin)\n`/talking_bot` – Enable talking bot in a channel (admin)", "inline": False},
+                ]
+            }
+        ]
+        view = CmdsPaginationView(pages, ctx.author.id)
+        embed = view.get_embed()
+        await ctx.send(embed=embed, view=view, mention_author=True)
     except Exception as e:
         print(f"Error in .cmds: {e}")
         await ctx.send("An error occurred while displaying the help menu.", mention_author=True)
@@ -1235,7 +1294,7 @@ async def auto_delete_messages(
 
     if disable:
         if channel.id not in channels:
-            await interaction.response.send_message(f"âŒ {channel.mention} is not in the instant delete list.", ephemeral=True)
+            await interaction.response.send_message(f"❌ {channel.mention} is not in the instant delete list.", ephemeral=True)
             return
         channels.remove(channel.id)
         if channels:
@@ -1246,7 +1305,7 @@ async def auto_delete_messages(
         else:
             await asyncio.to_thread(auto_delete_config_col.delete_one, {"guild_id": guild_id})
         embed = discord.Embed(
-            title="â¹ï¸ Instant Delete Disabled",
+            title="⏹️ Instant Delete Disabled",
             description=f"Instant message deletion has been disabled for {channel.mention}.",
             color=0x90EE90
         )
@@ -1254,7 +1313,7 @@ async def auto_delete_messages(
         return
 
     if channel.id in channels:
-        await interaction.response.send_message(f"âŒ {channel.mention} is already in the instant delete list.", ephemeral=True)
+        await interaction.response.send_message(f"❌ {channel.mention} is already in the instant delete list.", ephemeral=True)
         return
 
     channels.append(channel.id)
@@ -1264,7 +1323,7 @@ async def auto_delete_messages(
         upsert=True
     )
     embed = discord.Embed(
-        title="âœ… Instant Delete Set Up",
+        title="✅ Instant Delete Set Up",
         description=f"All new messages in {channel.mention} will be instantly deleted.",
         color=0x90EE90
     )
@@ -1274,7 +1333,7 @@ async def auto_delete_messages(
 async def atd_view_channel(interaction: discord.Interaction):
     config = await asyncio.to_thread(auto_delete_config_col.find_one, {"guild_id": interaction.guild.id})
     if not config or not config.get("channels"):
-        await interaction.response.send_message("â„¹ï¸ No channels are currently set for instant deletion.", ephemeral=True)
+        await interaction.response.send_message("ℹ️ No channels are currently set for instant deletion.", ephemeral=True)
         return
 
     channel_ids = config["channels"]
@@ -1286,7 +1345,7 @@ async def atd_view_channel(interaction: discord.Interaction):
         else:
             channel_mentions.append(f"#deleted-channel ({cid})")
     embed = discord.Embed(
-        title="ðŸ“‹ Instant Delete Channels",
+        title="📋 Instant Delete Channels",
         description="\n".join(channel_mentions) or "None",
         color=0x90EE90
     )
@@ -1302,12 +1361,12 @@ async def atd_remove_channel(interaction: discord.Interaction, channel: discord.
     guild_id = interaction.guild.id
     config = await asyncio.to_thread(auto_delete_config_col.find_one, {"guild_id": guild_id})
     if not config or not config.get("channels"):
-        await interaction.response.send_message("âŒ No channels are currently set for instant deletion.", ephemeral=True)
+        await interaction.response.send_message("❌ No channels are currently set for instant deletion.", ephemeral=True)
         return
 
     channels = config["channels"]
     if channel.id not in channels:
-        await interaction.response.send_message(f"âŒ {channel.mention} is not in the instant delete list.", ephemeral=True)
+        await interaction.response.send_message(f"❌ {channel.mention} is not in the instant delete list.", ephemeral=True)
         return
 
     channels.remove(channel.id)
@@ -1319,7 +1378,7 @@ async def atd_remove_channel(interaction: discord.Interaction, channel: discord.
     else:
         await asyncio.to_thread(auto_delete_config_col.delete_one, {"guild_id": guild_id})
     embed = discord.Embed(
-        title="âœ… Instant Delete Removed",
+        title="✅ Instant Delete Removed",
         description=f"{channel.mention} has been removed from instant deletion.",
         color=0x90EE90
     )
@@ -1408,7 +1467,7 @@ class BypassView(discord.ui.View):
         super().__init__(timeout=60)
         self.url = url
 
-    @discord.ui.button(label="Continue", style=discord.ButtonStyle.danger, emoji="âš ï¸")
+    @discord.ui.button(label="Continue", style=discord.ButtonStyle.danger, emoji="⚠️")
     async def continue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         button.disabled = True
@@ -1454,13 +1513,13 @@ class BypassView(discord.ui.View):
             else:
                 key = await bypass_url_python(self.url)
 
-            embed = discord.Embed(title="âœ… Bypass Successful", color=discord.Color.purple())
+            embed = discord.Embed(title="✅ Bypass Successful", color=discord.Color.purple())
             embed.add_field(name="Original URL", value=f"```{self.url}```", inline=False)
             embed.add_field(name="Extracted Key", value=f"```{key}```", inline=False)
             await interaction.edit_original_response(embed=embed, view=None)
 
         except Exception as e:
-            embed = discord.Embed(title="âš ï¸ Bypass Error", color=discord.Color.red())
+            embed = discord.Embed(title="⚠️ Bypass Error", color=discord.Color.red())
             embed.description = f"```{str(e)[:2000]}```"
             await interaction.edit_original_response(embed=embed, view=None)
 
@@ -1468,7 +1527,7 @@ class BypassView(discord.ui.View):
 @app_commands.describe(url="The REQUIRED link you want to bypass")
 async def slash_bypass(interaction: discord.Interaction, url: str):
     embed = discord.Embed(
-        title="âš ï¸ Warning",
+        title="⚠️ Warning",
         description="You are putting your account at risk because Delta has a policy that there is a chance that your Delta or Account will be banned or timed out.",
         color=discord.Color.purple()
     )
@@ -1516,9 +1575,9 @@ async def fetch_content(url: str) -> tuple[bool, str, str]:
                                 if resp.status == 502:
                                     await asyncio.sleep(2)
                                     continue
-                                if resp.status == 404: return False, "", "âŒ 404: File does not exist"
-                                if resp.status == 403: return False, "", "âŒ 403: Access blocked by host"
-                                if resp.status >= 400: return False, "", f"âŒ HTTP Error: {resp.status}"
+                                if resp.status == 404: return False, "", "❌ 404: File does not exist"
+                                if resp.status == 403: return False, "", "❌ 403: Access blocked by host"
+                                if resp.status >= 400: return False, "", f"❌ HTTP Error: {resp.status}"
                                 body = await resp.text(encoding="utf-8", errors="replace")
                                 if body and len(body.strip()) > 0:
                                     return True, decode_all_escapes(body), "Successfully fetched"
@@ -1529,7 +1588,7 @@ async def fetch_content(url: str) -> tuple[bool, str, str]:
             except Exception:
                 continue
         await asyncio.sleep(1)
-    return False, "", "âŒ Could not retrieve content after multiple attempts"
+    return False, "", "❌ Could not retrieve content after multiple attempts"
 
 async def extract_code(ctx):
     content = ""
@@ -1797,8 +1856,8 @@ def deobfuscate_code(source_text):
 def make_result_embed(ctx, title: str, deobf: dict=None, raw: str=None):
     if deobf:
         obf = deobf["obfuscator"]
-        steps = "\n".join([f"â€¢ {s}" for s in deobf["steps"]]) if deobf["steps"] else "â€¢ No unpack steps"
-        anti = "\n".join(deobf["anti_found"]) if deobf["anti_found"] else "â€¢ None detected"
+        steps = "\n".join([f"• {s}" for s in deobf["steps"]]) if deobf["steps"] else "• No unpack steps"
+        anti = "\n".join(deobf["anti_found"]) if deobf["anti_found"] else "• None detected"
         desc = f"""{ctx.author.mention}
 **Obfuscator:** `{obf['name']}`
 **Confidence:** `{obf['confidence']}%`
@@ -1825,11 +1884,11 @@ def make_result_embed(ctx, title: str, deobf: dict=None, raw: str=None):
         desc = f"{ctx.author.mention}\n**Status:** Raw decoded content"
         content = decode_all_escapes(raw)
     else:
-        emb = discord.Embed(title=title, color=0xe74c3c, description=f"{ctx.author.mention}\nâŒ Empty result")
+        emb = discord.Embed(title=title, color=0xe74c3c, description=f"{ctx.author.mention}\n❌ Empty result")
         return emb, None
 
     if not content or len(content) < 5:
-        emb = discord.Embed(title=title, color=0xe74c3c, description=desc+"\nâŒ No usable code")
+        emb = discord.Embed(title=title, color=0xe74c3c, description=desc+"\n❌ No usable code")
         return emb, None
 
     size_b = content.encode('utf-8')
@@ -1854,7 +1913,7 @@ def make_result_embed(ctx, title: str, deobf: dict=None, raw: str=None):
         if len(desc) > 5000:
             desc = desc[:5000] + "... [truncated description]"
         if not desc.endswith("Full code sent as file"):
-            desc += f"\nðŸ“¦ Size: `{round(size_kb,2)} KB` â†’ Full code sent as file"
+            desc += f"\n📦 Size: `{round(size_kb,2)} KB` → Full code sent as file"
         emb = discord.Embed(title=title, color=0x3498db, description=desc)
     else:
         emb = discord.Embed(title=title, color=0x2ecc71 if "Fully unpacked" in desc else 0xf39c12, description=desc)
@@ -1875,32 +1934,32 @@ async def get_command(ctx, *, link=None):
         if content:
             pass
         else:
-            emb = discord.Embed(title="âš ï¸ Missing Link/Code", color=0xf39c12, description=f"{ctx.author.mention}\nProvide a link, attach a file, or paste code.\nExample: `.get https://example.com/script.lua`")
+            emb = discord.Embed(title="⚠️ Missing Link/Code", color=0xf39c12, description=f"{ctx.author.mention}\nProvide a link, attach a file, or paste code.\nExample: `.get https://example.com/script.lua`")
             return await ctx.reply(embed=emb, mention_author=True)
 
     if link:
-        proc = await ctx.reply(f"ðŸ“¥ Fetching & deobfuscating {ctx.author.mention}...", mention_author=True)
+        proc = await ctx.reply(f"📥 Fetching & deobfuscating {ctx.author.mention}...", mention_author=True)
         try:
             ok, cont, msg = await fetch_content(link)
             if not ok:
                 await proc.delete()
-                return await ctx.reply(embed=discord.Embed(title="âŒ Fetch Failed", color=0xe74c3c, description=f"{ctx.author.mention}\n{msg}"), mention_author=True)
+                return await ctx.reply(embed=discord.Embed(title="❌ Fetch Failed", color=0xe74c3c, description=f"{ctx.author.mention}\n{msg}"), mention_author=True)
             content = cont
         except Exception as e:
             await proc.delete()
-            return await ctx.reply(embed=discord.Embed(title="âŒ Error", color=0xe74c3c, description=f"{ctx.author.mention}\n{str(e)[:500]}"), mention_author=True)
+            return await ctx.reply(embed=discord.Embed(title="❌ Error", color=0xe74c3c, description=f"{ctx.author.mention}\n{str(e)[:500]}"), mention_author=True)
     else:
         if not content:
-            emb = discord.Embed(title="âš ï¸ Missing Content", color=0xf39c12, description=f"{ctx.author.mention}\nProvide a link, attach a file, or paste code.")
+            emb = discord.Embed(title="⚠️ Missing Content", color=0xf39c12, description=f"{ctx.author.mention}\nProvide a link, attach a file, or paste code.")
             return await ctx.reply(embed=emb, mention_author=True)
-        proc = await ctx.reply(f"ðŸ”“ Deobfuscating {ctx.author.mention}...", mention_author=True)
+        proc = await ctx.reply(f"🔓 Deobfuscating {ctx.author.mention}...", mention_author=True)
 
     try:
         success, result = await deobfuscate_prometheus_lua(content)
         if success:
             report = {
                 "obfuscator": {"name": "Prometheus", "confidence": 100},
-                "steps": ["â€¢ Deobfuscated using Prometheus Lua function"],
+                "steps": ["• Deobfuscated using Prometheus Lua function"],
                 "layers_reached": 1,
                 "max_layers": 1,
                 "anti_found": [],
@@ -1908,7 +1967,7 @@ async def get_command(ctx, *, link=None):
                 "result": result,
                 "snippets": []
             }
-            emb, file = make_result_embed(ctx, "ðŸ”“ Deobfuscation Result", deobf=report)
+            emb, file = make_result_embed(ctx, "🔓 Deobfuscation Result", deobf=report)
             await proc.delete()
             if file:
                 await ctx.reply(embed=emb, file=file, mention_author=True)
@@ -1922,7 +1981,7 @@ async def get_command(ctx, *, link=None):
         if success:
             report = {
                 "obfuscator": {"name": "WeAreDevs", "confidence": 100},
-                "steps": ["â€¢ Deobfuscated using WeAreDevs pattern"],
+                "steps": ["• Deobfuscated using WeAreDevs pattern"],
                 "layers_reached": 1,
                 "max_layers": 1,
                 "anti_found": [],
@@ -1930,7 +1989,7 @@ async def get_command(ctx, *, link=None):
                 "result": result,
                 "snippets": []
             }
-            emb, file = make_result_embed(ctx, "ðŸ”“ Deobfuscation Result", deobf=report)
+            emb, file = make_result_embed(ctx, "🔓 Deobfuscation Result", deobf=report)
             await proc.delete()
             if file:
                 await ctx.reply(embed=emb, file=file, mention_author=True)
@@ -1951,15 +2010,15 @@ async def get_command(ctx, *, link=None):
         max_layers = 8
         report = {
             "obfuscator": {"name": obfuscator_name, "confidence": confidence},
-            "steps": [f"â€¢ {s}" for s in dec["steps"]],
+            "steps": [f"• {s}" for s in dec["steps"]],
             "layers_reached": dec["layers_done"],
             "max_layers": max_layers,
-            "anti_found": [f"â€¢ {a}" for a in dec["anti_found"]],
+            "anti_found": [f"• {a}" for a in dec["anti_found"]],
             "status": dec["status"],
             "result": dec["result"],
             "snippets": dec["snippets"]
         }
-        emb, file = make_result_embed(ctx, "ðŸ”“ Deobfuscation Result", deobf=report)
+        emb, file = make_result_embed(ctx, "🔓 Deobfuscation Result", deobf=report)
         await proc.delete()
         if file:
             await ctx.reply(embed=emb, file=file, mention_author=True)
@@ -1969,10 +2028,10 @@ async def get_command(ctx, *, link=None):
             await asyncio.to_thread(logs_col.insert_one, {"uid": ctx.author.id, "act": "get", "url": extract_url(link if link else ""), "at": discord.utils.utcnow()})
     except asyncio.TimeoutError:
         await proc.delete()
-        await ctx.reply(embed=discord.Embed(title="â±ï¸ Timeout", color=0xe74c3c, description=f"{ctx.author.mention}\nDeobfuscation took too long. Try a smaller file."), mention_author=True)
+        await ctx.reply(embed=discord.Embed(title="⏱️ Timeout", color=0xe74c3c, description=f"{ctx.author.mention}\nDeobfuscation took too long. Try a smaller file."), mention_author=True)
     except Exception as e:
         await proc.delete()
-        await ctx.reply(embed=discord.Embed(title="âŒ Error", color=0xe74c3c, description=f"{ctx.author.mention}\n{str(e)[:500]}"), mention_author=True)
+        await ctx.reply(embed=discord.Embed(title="❌ Error", color=0xe74c3c, description=f"{ctx.author.mention}\n{str(e)[:500]}"), mention_author=True)
         print(f"Deobf error: {e}")
 
 async def delete_cmds_only(ctx):
@@ -1982,12 +2041,12 @@ async def delete_cmds_only(ctx):
 
 @bot.event
 async def on_ready():
-    print(f"âœ… Logged in as: {bot.user}")
+    print(f"✅ Logged in as: {bot.user}")
     try:
         await bot.tree.sync()
-        print("âœ… Slash commands synced globally")
+        print("✅ Slash commands synced globally")
     except Exception as e:
-        print(f"âš ï¸ Failed to sync slash commands: {e}")
+        print(f"⚠️ Failed to sync slash commands: {e}")
 
     panels = await asyncio.to_thread(ticket_panels_col.find)
     for panel in panels:
@@ -1999,7 +2058,7 @@ async def on_ready():
         view = PersistentTicketPanel(
             panel_id,
             panel.get("label_button", "Open Ticket"),
-            panel.get("label_emoji", "ðŸŽŸï¸"),
+            panel.get("label_emoji", "🎟️"),
             button_style
         )
         bot.add_view(view)
@@ -2016,7 +2075,7 @@ async def on_ready():
                 try:
                     msg = await channel.fetch_message(message_id)
                     new_embed = discord.Embed(
-                        title="ðŸ” Server Verification",
+                        title="🔐 Server Verification",
                         description=(
                             "Welcome to the server! We are glad to Have you here.\n\n"
                             "To gain access to all the channels and features, please verify yourself by clicking the **Verify** button below.\n"
@@ -2027,7 +2086,7 @@ async def on_ready():
                     new_embed.set_footer(text="Verification System")
                     if config.get("deadline"):
                         new_embed.add_field(
-                            name="â³ Verification Deadline",
+                            name="⏳ Verification Deadline",
                             value=f"All members must verify before <t:{config['deadline']}:R>.\nAfter that, unverified members will receive the **Not Verified** role.",
                             inline=False
                         )
@@ -2056,7 +2115,7 @@ async def on_ready():
 
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=".cmds | /ping | /channel_* | /ticket | /verification_system | /verify | /active_checker | /bypass | /auto_delete* | /timer_delete* | /talking_bot | .get"))
     if db is not None:
-        print(f"âœ… Database Ready: {db.name}")
+        print(f"✅ Database Ready: {db.name}")
 
 def keep_alive():
     while True:
