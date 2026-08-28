@@ -980,7 +980,7 @@ async def verification_system(
 @bot.tree.command(name="timer_delete_msg", description="Set up a timer-based auto-delete for a channel")
 @app_commands.describe(
     channel="The text channel to monitor",
-    action="Choose 'Enable' to set timer, 'Disable' to remove it",
+    action="Choose 'Enable' to set timer, 'Disable' to remove it (default: Enable)",
     time="Cooldown duration (e.g., 10s, 5m, 1h, 1d) – required when enabling"
 )
 @app_commands.choices(action=[
@@ -991,65 +991,72 @@ async def verification_system(
 async def timer_delete_msg(
     interaction: discord.Interaction,
     channel: discord.TextChannel,
-    action: app_commands.Choice[str],
-    time: str = None
+    action: Optional[app_commands.Choice[str]] = None,
+    time: Optional[str] = None
 ):
-    if action.value == "disable":
+    try:
+        action_value = action.value if action else "enable"
+
+        if action_value == "disable":
+            guild_id = interaction.guild.id
+            channel_id = channel.id
+            await asyncio.to_thread(timer_delete_config_col.delete_one, {"guild_id": guild_id, "channel_id": channel_id})
+            if channel_id in timer_delete_timers:
+                timer_delete_timers[channel_id].cancel()
+                del timer_delete_timers[channel_id]
+            embed = discord.Embed(
+                title="⏹️ Timer Delete Disabled",
+                description=f"Timer delete has been disabled for {channel.mention}.",
+                color=0x90EE90
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+
+        if not time:
+            await interaction.response.send_message("❌ You must provide a time duration when enabling timer delete.", ephemeral=True)
+            return
+
+        try:
+            duration = parse_duration(time)
+        except ValueError as e:
+            await interaction.response.send_message(str(e), ephemeral=True)
+            return
+
+        if duration < 5:
+            await interaction.response.send_message("❌ Duration must be at least 5 seconds.", ephemeral=True)
+            return
+
+        if not interaction.guild.me.guild_permissions.manage_messages:
+            await interaction.response.send_message("❌ I need 'Manage Messages' permission to delete messages.", ephemeral=True)
+            return
+
+        if not channel.permissions_for(interaction.guild.me).manage_messages:
+            await interaction.response.send_message(f"❌ I don't have permission to manage messages in {channel.mention}.", ephemeral=True)
+            return
+
         guild_id = interaction.guild.id
         channel_id = channel.id
-        await asyncio.to_thread(timer_delete_config_col.delete_one, {"guild_id": guild_id, "channel_id": channel_id})
-        if channel_id in timer_delete_timers:
-            timer_delete_timers[channel_id].cancel()
-            del timer_delete_timers[channel_id]
+
+        await asyncio.to_thread(timer_delete_config_col.update_one,
+            {"guild_id": guild_id, "channel_id": channel_id},
+            {"$set": {"duration_seconds": duration}},
+            upsert=True
+        )
+
+        reset_timer_delete_timer(channel_id, duration)
+
         embed = discord.Embed(
-            title="⏹️ Timer Delete Disabled",
-            description=f"Timer delete has been disabled for {channel.mention}.",
+            title="✅ Timer Delete Set Up",
+            description=f"Messages in {channel.mention} will be deleted after **{time}** of inactivity.\n\n"
+                        f"Any new message resets the timer.",
             color=0x90EE90
         )
+        embed.set_footer(text=f"Duration: {duration}s")
         await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
 
-    if not time:
-        await interaction.response.send_message("❌ You must provide a time duration when enabling timer delete.", ephemeral=True)
-        return
-
-    try:
-        duration = parse_duration(time)
-    except ValueError as e:
-        await interaction.response.send_message(str(e), ephemeral=True)
-        return
-
-    if duration < 5:
-        await interaction.response.send_message("❌ Duration must be at least 5 seconds.", ephemeral=True)
-        return
-
-    if not interaction.guild.me.guild_permissions.manage_messages:
-        await interaction.response.send_message("❌ I need 'Manage Messages' permission to delete messages.", ephemeral=True)
-        return
-
-    if not channel.permissions_for(interaction.guild.me).manage_messages:
-        await interaction.response.send_message(f"❌ I don't have permission to manage messages in {channel.mention}.", ephemeral=True)
-        return
-
-    guild_id = interaction.guild.id
-    channel_id = channel.id
-
-    await asyncio.to_thread(timer_delete_config_col.update_one,
-        {"guild_id": guild_id, "channel_id": channel_id},
-        {"$set": {"duration_seconds": duration}},
-        upsert=True
-    )
-
-    reset_timer_delete_timer(channel_id, duration)
-
-    embed = discord.Embed(
-        title="✅ Timer Delete Set Up",
-        description=f"Messages in {channel.mention} will be deleted after **{time}** of inactivity.\n\n"
-                    f"Any new message resets the timer.",
-        color=0x90EE90
-    )
-    embed.set_footer(text=f"Duration: {duration}s")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    except Exception as e:
+        print(f"Timer delete error: {e}")
+        await interaction.response.send_message(f"❌ An error occurred: {str(e)[:200]}", ephemeral=True)
 
 @bot.tree.command(name="source_finder", description="Set the prefix trigger and channel for finding Lua sources")
 @app_commands.describe(
