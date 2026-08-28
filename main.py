@@ -75,7 +75,6 @@ active_checker_col = None
 auto_delete_config_col = None
 verified_users_col = None
 timer_delete_config_col = None
-talking_bot_config_col = None
 source_finder_config_col = None
 source_finder_logs_col = None
 
@@ -92,7 +91,6 @@ try:
     auto_delete_config_col = db["auto_delete_config"]
     verified_users_col = db["verified_users"]
     timer_delete_config_col = db["timer_delete_config"]
-    talking_bot_config_col = db["talking_bot_config"]
     source_finder_config_col = db["source_finder_config"]
     source_finder_logs_col = db["source_finder_logs"]
     print("✅ MongoDB Connected")
@@ -177,11 +175,6 @@ async def on_message(message):
             if duration:
                 reset_timer_delete_timer(message.channel.id, duration)
 
-    if talking_bot_config_col is not None:
-        config = await asyncio.to_thread(talking_bot_config_col.find_one, {"guild_id": message.guild.id, "channel_id": message.channel.id})
-        if config:
-            asyncio.create_task(handle_talking_bot(message))
-
     if source_finder_config_col is not None:
         config = await asyncio.to_thread(source_finder_config_col.find_one, {"guild_id": message.guild.id})
         if config:
@@ -195,39 +188,6 @@ async def on_message(message):
 
     if message.content.startswith("."):
         await bot.process_commands(message)
-
-async def handle_talking_bot(message):
-    try:
-        if message.author.bot:
-            return
-        content = message.content.lower()
-        responses = {
-            r'\bhello\b': "Hello there! How can I assist you with Lua or Roblox exploits today?",
-            r'\bhi\b': "Hi! I'm here to help with Lua coding and exploit questions.",
-            r'\blua\b': "Lua is a powerful, lightweight scripting language used in Roblox. Need help with a specific script?",
-            r'\bexploit\b': "Exploits like Delta can be tricky. Always ensure you're using trusted sources. What's your question?",
-            r'\bdelta\b': "Delta is a popular Roblox executor. It supports many scripts and has a built-in decompiler. What would you like to know?",
-            r'\bscript\b': "I can help write or debug Lua scripts. Paste your code and I'll take a look.",
-            r'\bhow to\b': "Let me guide you step by step. Be specific about what you're trying to achieve.",
-            r'\berror\b': "Errors are common. Share the error message and I'll help you fix it.",
-            r'\bdeobfuscate\b': "I can deobfuscate Prometheus, WeAreDevs, and many other obfuscators. Try my `.get` command.",
-            r'\bobfuscate\b': "I used to obfuscate, but now I focus on helping with code and exploits. What do you need?",
-            r'\bticket\b': "For support tickets, use the `/ticket` command to create a ticket panel.",
-            r'\bverify\b': "To verify, click the **Verify** button in the verification channel.",
-            r'\bauto[- ]delete\b': "I have both instant and timer-based auto-delete. Use `/auto_delete_messages` or `/timer_delete_msg`.",
-            r'\bactive[- ]checker\b': "Set up active pings with `/active_checker`.",
-            r'\bhelp\b': "I'm here to help! Ask me anything about Lua, exploits, or my commands.",
-        }
-        for pattern, reply in responses.items():
-            if re.search(pattern, content):
-                await message.reply(reply, mention_author=True)
-                return
-        if len(content) > 10 and "?" in content:
-            await message.reply("That's a good question! Could you be more specific? I'm here to help.", mention_author=True)
-        else:
-            await message.reply("I'm listening! Feel free to ask about Lua, exploits, or any of my commands.", mention_author=True)
-    except Exception as e:
-        print(f"Talking bot error: {e}")
 
 async def google_search(query: str, limit: int = 3) -> list:
     search_query = f"lua {query} filetype:lua OR site:pastebin.com OR site:raw.githubusercontent.com"
@@ -891,77 +851,10 @@ class VerificationButton(discord.ui.View):
         except Exception as e:
             await interaction.followup.send(f"❌ An error occurred: {str(e)[:200]}", ephemeral=True)
 
-async def apply_not_verified_to_all(guild_id, not_verified_role_id):
-    guild = bot.get_guild(guild_id)
-    if not guild:
-        return
-    role = guild.get_role(not_verified_role_id)
-    if not role:
-        return
-    config = await asyncio.to_thread(verification_config_col.find_one, {"guild_id": guild_id})
-    if not config:
-        return
-    verified_role_id = config.get("verified_role_id")
-    verified_role = guild.get_role(verified_role_id)
-    count = 0
-    async for member in guild.fetch_members(limit=None):
-        if member.bot:
-            continue
-        if verified_role and verified_role in member.roles:
-            continue
-        if role in member.roles:
-            continue
-        try:
-            await member.add_roles(role, reason="Verification deadline expired")
-            count += 1
-            if count % 10 == 0:
-                await asyncio.sleep(0.5)
-        except discord.Forbidden:
-            continue
-        except Exception as e:
-            print(f"Error assigning role to {member}: {e}")
-    print(f"Assigned Not Verified role to {count} members in guild {guild_id}")
-
-async def check_verification_deadlines():
-    await bot.wait_until_ready()
-    while not bot.is_closed():
-        try:
-            now = int(time.time())
-            configs = await asyncio.to_thread(
-                lambda: list(verification_config_col.find({"deadline": {"$lte": now}}))
-            )
-            for config in configs:
-                guild_id = config["guild_id"]
-                not_verified_role_id = config["not_verified_role_id"]
-                if config.get("deadline_processed", False):
-                    continue
-                await apply_not_verified_to_all(guild_id, not_verified_role_id)
-                await asyncio.to_thread(
-                    verification_config_col.update_one,
-                    {"guild_id": guild_id},
-                    {"$set": {"deadline_processed": True}}
-                )
-        except Exception as e:
-            print(f"Verification deadline check error: {e}")
-        await asyncio.sleep(60)
-
-def parse_duration(duration_str: str) -> int:
-    duration_str = duration_str.lower().strip()
-    if duration_str.endswith("d"):
-        return int(duration_str[:-1]) * 86400
-    elif duration_str.endswith("h"):
-        return int(duration_str[:-1]) * 3600
-    elif duration_str.endswith("m"):
-        return int(duration_str[:-1]) * 60
-    elif duration_str.endswith("s"):
-        return int(duration_str[:-1])
-    else:
-        raise ValueError("Invalid duration format. Use e.g., 1d, 12h, 30m, 45s")
-
 def get_verification_view():
     return VerificationButton()
 
-@bot.tree.command(name="verification_system", description="Set up the verification system with an automatic deadline")
+@bot.tree.command(name="verification_system", description="Set up the verification system")
 @app_commands.describe(
     select_role="The role to give upon verification",
     channel="The channel where the verification message will be sent"
@@ -1048,9 +941,6 @@ async def verification_system(
             except:
                 continue
 
-    DEFAULT_VERIFICATION_DURATION = 86400
-    deadline = int(time.time()) + DEFAULT_VERIFICATION_DURATION
-
     embed = discord.Embed(
         title="🔐 Server Verification",
         description=(
@@ -1061,11 +951,6 @@ async def verification_system(
         color=0x1e90ff
     )
     embed.set_footer(text="Verification System")
-    embed.add_field(
-        name="⏳ Verification Deadline",
-        value=f"All members must verify before <t:{deadline}:R>.\n\nAfter that, unverified members will receive the **Not Verified** role.",
-        inline=False
-    )
 
     view = get_verification_view()
     msg = await channel.send(embed=embed, view=view)
@@ -1075,9 +960,7 @@ async def verification_system(
         "not_verified_role_id": not_verified_role.id,
         "verified_role_id": select_role.id,
         "channel_id": channel.id,
-        "message_id": msg.id,
-        "deadline": deadline,
-        "deadline_processed": False
+        "message_id": msg.id
     }
     await asyncio.to_thread(verification_config_col.update_one,
         {"guild_id": guild.id},
@@ -1090,8 +973,7 @@ async def verification_system(
         f"Not Verified role: {not_verified_role.mention}\n"
         f"Verified role: {select_role.mention}\n"
         f"Verification channel: {channel.mention}\n"
-        f"Assigned Not Verified role to {members_assigned} members.\n"
-        f"⏳ Deadline set: <t:{deadline}:R> (auto 24 hours)"
+        f"Assigned Not Verified role to {members_assigned} members."
     )
     await interaction.followup.send(response, ephemeral=True)
 
@@ -1163,44 +1045,6 @@ async def timer_delete_msg(
         color=0x90EE90
     )
     embed.set_footer(text=f"Duration: {duration}s")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-@bot.tree.command(name="talking_bot", description="Enable a talking bot that replies in a specific channel")
-@app_commands.describe(
-    channel="The channel where the bot will reply",
-    disable="Set to True to disable the talking bot for this channel"
-)
-@app_commands.default_permissions(administrator=True)
-async def talking_bot(
-    interaction: discord.Interaction,
-    channel: discord.TextChannel,
-    disable: bool = False
-):
-    guild_id = interaction.guild.id
-    channel_id = channel.id
-
-    if disable:
-        await asyncio.to_thread(talking_bot_config_col.delete_one, {"guild_id": guild_id, "channel_id": channel_id})
-        embed = discord.Embed(
-            title="⏹️ Talking Bot Disabled",
-            description=f"The talking bot has been disabled for {channel.mention}.",
-            color=0x90EE90
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-
-    await asyncio.to_thread(talking_bot_config_col.update_one,
-        {"guild_id": guild_id, "channel_id": channel_id},
-        {"$set": {"enabled": True}},
-        upsert=True
-    )
-
-    embed = discord.Embed(
-        title="✅ Talking Bot Enabled",
-        description=f"I will now reply to messages in {channel.mention}.\n\n"
-                    f"I can answer questions about Lua, exploits, Delta, and my commands.",
-        color=0x90EE90
-    )
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="source_finder", description="Set the prefix trigger and channel for finding Lua sources")
@@ -1368,15 +1212,14 @@ async def show_commands(ctx):
                 "description": f"Hello {ctx.author.mention}\n\nHere are the available commands:",
                 "fields": [
                     {"name": "`Deobfuscator [.get]`", "value": "Fetch and deobfuscate code from a URL, attachment, or reply.\nMulti‑layer auto‑detection with retry and proxy fallback.", "inline": False},
-                    {"name": "`Ping [.ping]`", "value": "Check the bot's latency (prefix version).", "inline": False},
-                    {"name": "`Database [.db]`", "value": "`status` – check MongoDB connection; `clear` (owner only) – wipe all data.", "inline": False},
+                    {"name": "`Ping [.ping]`", "value": "Check the bot's latency (prefix version).", "inline": False}
                 ]
             },
             {
                 "title": "RblXLua Bot Commands (2/2)",
                 "description": f"Hello {ctx.author.mention}\n\nHere are the available slash commands:",
                 "fields": [
-                    {"name": "`Slash Commands`", "value": "`/ping` – Check bot latency\n\n`/channel_set` – Restrict commands to a channel\n\n`/channel_view` – Show current restriction\n\n`/channel_clear` – Remove restriction\n\n`/ticket` – Create ticket panel (admin)\n\n`/verification_system` – Set up verification with automatic 24h deadline (admin)\n\n`/active_checker` – Periodic @everyone ping (admin)\n\n`/auto_delete_messages` – Instant message deletion (admin)\n\n`/atd_view_channel` – View instant delete channels\n\n`/atd_remove_channel` – Remove instant delete channel (admin)\n\n`/timer_delete_msg` – Timer-based auto-delete (admin)\n\n`/talking_bot` – Enable talking bot in a channel (admin)\n\n`/source_finder` – Set prefix and channel to find Lua sources (admin)", "inline": False},
+                    {"name": "`Slash Commands`", "value": "`/ping` – Check bot latency\n\n`/channel_set` – Restrict commands to a channel\n\n`/channel_view` – Show current restriction\n\n`/channel_clear` – Remove restriction\n\n`/ticket` – Create ticket panel (admin)\n\n`/verification_system` – Set up verification (admin)\n\n`/active_checker` – Periodic @everyone ping (admin)\n\n`/auto_delete_messages` – Instant message deletion (admin)\n\n`/atd_view_channel` – View instant delete channels\n\n`/atd_remove_channel` – Remove instant delete channel (admin)\n\n`/timer_delete_msg` – Timer-based auto-delete (admin)\n\n`/source_finder` – Set prefix and channel to find Lua sources (admin)", "inline": False},
                 ]
             }
         ]
@@ -2050,12 +1893,6 @@ async def on_ready():
                         color=0x1e90ff
                     )
                     new_embed.set_footer(text="Verification System")
-                    if config.get("deadline"):
-                        new_embed.add_field(
-                            name="⏳ Verification Deadline",
-                            value=f"All members must verify before <t:{config['deadline']}:R>.\n\nAfter that, unverified members will receive the **Not Verified** role.",
-                            inline=False
-                        )
                     view = get_verification_view()
                     await msg.edit(embed=new_embed, view=view)
                 except Exception as e:
@@ -2077,9 +1914,7 @@ async def on_ready():
         if duration:
             reset_timer_delete_timer(channel_id, duration)
 
-    asyncio.create_task(check_verification_deadlines())
-
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=".cmds | /ping | /channel_* | /ticket | /verification_system | /active_checker | /auto_delete* | /timer_delete* | /talking_bot | /source_finder | .get"))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=".cmds | /ping | /channel_* | /ticket | /verification_system | /active_checker | /auto_delete* | /timer_delete* | /source_finder | .get"))
     if db is not None:
         print(f"✅ Database Ready: {db.name}")
 
