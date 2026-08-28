@@ -74,6 +74,7 @@ auto_delete_config_col = None
 verified_users_col = None
 timer_delete_config_col = None
 talking_bot_config_col = None
+source_finder_config_col = None
 
 try:
     mongo_client = MongoClient(MONGODB_URI, server_api=ServerApi('1'))
@@ -89,6 +90,7 @@ try:
     verified_users_col = db["verified_users"]
     timer_delete_config_col = db["timer_delete_config"]
     talking_bot_config_col = db["talking_bot_config"]
+    source_finder_config_col = db["source_finder_config"]
     print("✅ MongoDB Connected")
 except Exception as e:
     print(f"❌ MongoDB Error: {e}")
@@ -176,6 +178,17 @@ async def on_message(message):
         if config:
             asyncio.create_task(handle_talking_bot(message))
 
+    if source_finder_config_col is not None:
+        config = await asyncio.to_thread(source_finder_config_col.find_one, {"guild_id": message.guild.id})
+        if config:
+            prefix = config.get("prefix")
+            channel_id = config.get("channel_id")
+            if prefix and message.channel.id == channel_id:
+                if message.content.lower().startswith(prefix + "find "):
+                    query = message.content[len(prefix) + 5:].strip()
+                    if query:
+                        asyncio.create_task(handle_source_finder(message, query))
+
     if message.content.startswith("."):
         await bot.process_commands(message)
 
@@ -211,6 +224,41 @@ async def handle_talking_bot(message):
             await message.reply("I'm listening! Feel free to ask about Lua, exploits, or any of my commands.", mention_author=True)
     except Exception as e:
         print(f"Talking bot error: {e}")
+
+async def handle_source_finder(message, query):
+    try:
+        await message.channel.typing()
+        encoded_query = quote_plus(query)
+        url = f"https://api.github.com/search/code?q={encoded_query}+extension:lua+in:file&per_page=5"
+        headers = {"Accept": "application/vnd.github.v3+json"}
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    await message.reply("❌ Failed to search GitHub. Please try again later.", mention_author=True)
+                    return
+                data = await resp.json()
+                items = data.get("items", [])
+                if not items:
+                    await message.reply(f"❌ No Lua source found for '{query}'.", mention_author=True)
+                    return
+                embed = discord.Embed(
+                    title=f"🔍 Lua Source Results for '{query}'",
+                    color=0x2b2d31
+                )
+                for i, item in enumerate(items[:5], 1):
+                    repo = item["repository"]["full_name"]
+                    path = item["path"]
+                    url = item["html_url"]
+                    embed.add_field(
+                        name=f"{i}. {path}",
+                        value=f"Repository: `{repo}`\n[View File]({url})",
+                        inline=False
+                    )
+                embed.set_footer(text="Powered by GitHub Search")
+                await message.reply(embed=embed, mention_author=True)
+    except Exception as e:
+        print(f"Source finder error: {e}")
+        await message.reply("❌ An error occurred while searching for sources.", mention_author=True)
 
 @bot.tree.command(name="active_checker", description="Set up an active checker that pings @everyone periodically")
 @app_commands.describe(
@@ -882,7 +930,6 @@ async def verification_system(
     tasks = [apply_permissions(ch) for ch in channels_to_update]
     await asyncio.gather(*tasks)
 
-    # Assign Not Verified role to members who don't have the verified role, excluding bots
     members_assigned = 0
     async for member in guild.fetch_members(limit=None):
         if member.bot:
@@ -1053,6 +1100,37 @@ async def talking_bot(
     )
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
+@bot.tree.command(name="source_finder", description="Set the prefix trigger and channel for finding Lua sources")
+@app_commands.describe(
+    prefix="Choose a prefix trigger for the find command",
+    channel="The channel where the find command will work"
+)
+@app_commands.choices(prefix=[
+    app_commands.Choice(name=".", value="."),
+    app_commands.Choice(name="?", value="?"),
+    app_commands.Choice(name="$", value="$")
+])
+@app_commands.default_permissions(administrator=True)
+async def source_finder(
+    interaction: discord.Interaction,
+    prefix: app_commands.Choice[str],
+    channel: discord.TextChannel
+):
+    guild_id = interaction.guild.id
+    await asyncio.to_thread(source_finder_config_col.update_one,
+        {"guild_id": guild_id},
+        {"$set": {"prefix": prefix.value, "channel_id": channel.id}},
+        upsert=True
+    )
+    embed = discord.Embed(
+        title="✅ Source Finder Configured",
+        description=f"Prefix set to `{prefix.value}`.\nChannel set to {channel.mention}.\n\n"
+                    f"To find Lua sources, use: `{prefix.value}find <Lua name>`\n"
+                    f"Example: `{prefix.value}find monlua`",
+        color=0x90EE90
+    )
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
 @bot.check
 async def global_channel_check(ctx):
     if ctx.author.id == OWNER_ID:
@@ -1195,7 +1273,7 @@ async def show_commands(ctx):
                 "title": "RblXLua Bot Commands (2/2)",
                 "description": f"Hello {ctx.author.mention}\n\nHere are the available slash commands:",
                 "fields": [
-                    {"name": "`Slash Commands`", "value": "`/ping` – Check bot latency\n\n`/channel_set` – Restrict commands to a channel\n\n`/channel_view` – Show current restriction\n\n`/channel_clear` – Remove restriction\n\n`/ticket` – Create ticket panel (admin)\n\n`/verification_system` – Set up verification with automatic 24h deadline (admin)\n\n`/active_checker` – Periodic @everyone ping (admin)\n\n`/auto_delete_messages` – Instant message deletion (admin)\n\n`/atd_view_channel` – View instant delete channels\n\n`/atd_remove_channel` – Remove instant delete channel (admin)\n\n`/timer_delete_msg` – Timer-based auto-delete (admin)\n\n`/talking_bot` – Enable talking bot in a channel (admin)", "inline": False},
+                    {"name": "`Slash Commands`", "value": "`/ping` – Check bot latency\n\n`/channel_set` – Restrict commands to a channel\n\n`/channel_view` – Show current restriction\n\n`/channel_clear` – Remove restriction\n\n`/ticket` – Create ticket panel (admin)\n\n`/verification_system` – Set up verification with automatic 24h deadline (admin)\n\n`/active_checker` – Periodic @everyone ping (admin)\n\n`/auto_delete_messages` – Instant message deletion (admin)\n\n`/atd_view_channel` – View instant delete channels\n\n`/atd_remove_channel` – Remove instant delete channel (admin)\n\n`/timer_delete_msg` – Timer-based auto-delete (admin)\n\n`/talking_bot` – Enable talking bot in a channel (admin)\n\n`/source_finder` – Set prefix and channel to find Lua sources (admin)", "inline": False},
                 ]
             }
         ]
@@ -1898,7 +1976,7 @@ async def on_ready():
 
     asyncio.create_task(check_verification_deadlines())
 
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=".cmds | /ping | /channel_* | /ticket | /verification_system | /active_checker | /auto_delete* | /timer_delete* | /talking_bot | .get"))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=".cmds | /ping | /channel_* | /ticket | /verification_system | /active_checker | /auto_delete* | /timer_delete* | /talking_bot | /source_finder | .get"))
     if db is not None:
         print(f"✅ Database Ready: {db.name}")
 
