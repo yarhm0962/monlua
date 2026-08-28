@@ -1578,34 +1578,42 @@ def deobfuscate_code(source_text):
     max_depth = 8
     report = {"detected": [], "steps": [], "anti": [], "snippets": []}
 
-    def scan_signatures(txt):
-        sigs = [
-            ("Prometheus", r'return\(function\(%.-%\)local L={'),
-            ("Lunr", r'return\(function\(L,M,I\)'),
-            ("Luraph", r'--.*Luraph|luraph\.net'),
-            ("Fualmor", r'fualmor|canary|_tripwire|4294967296'),
-            ("WeAreDevs", r'wearedevs\.net|WAD_OBF|loadstring%s*%(%s*["\']%s*[A-Za-z0-9+/=]+%s*["\']'),
-            ("Anti-Env/Log", r'envlog|galactic|writefile.*\.lua|discord.*webhook')
-        ]
-        lines = txt.split('\n')
-        for name, pat in sigs:
-            try:
-                if re.search(pat, txt, re.I):
-                    if name not in report["detected"]:
-                        report["detected"].append(name)
-                    if "Anti" in name:
-                        report["anti"].append(name)
-                    for i, line in enumerate(lines):
-                        if re.search(pat, line, re.I):
-                            start = max(0, i-1)
-                            end = min(len(lines), i+2)
-                            snippet = '\n'.join(lines[start:end])
-                            if snippet not in report["snippets"]:
-                                report["snippets"].append(snippet)
-                            if len(report["snippets"]) >= 10:
-                                break
-            except re.error:
-                pass
+    # Enhanced signature list with more obfuscators and unique markers
+    sigs = [
+        ("Prometheus", r'return\(function\(%.-%\)local L={'),
+        ("Lunr", r'return\(function\(L,M,I\)'),
+        ("Luraph", r'--.*Luraph|luraph\.net'),
+        ("Fualmor", r'fualmor|canary|_tripwire|4294967296'),
+        ("WeAreDevs", r'wearedevs\.net|WAD_OBF|loadstring%s*%(%s*["\']%s*[A-Za-z0-9+/=]+%s*["\']'),
+        ("MoonSec", r'moonsec|MoonSec|MoonSecurity'),
+        ("IronBrew", r'ironbrew|IronBrew|ib_'),
+        ("LuaGuard", r'luaguard|LuaGuard'),
+        ("Synapse", r'synapse|SynapseX|SynX'),
+        ("Oxy", r'oxy|Oxy|OxyGen'),
+        ("Prisma", r'prisma|Prisma|PrismaObf'),
+        ("Anti-Env/Log", r'envlog|galactic|writefile.*\.lua|discord.*webhook')
+    ]
+
+    lines = source_text.split('\n')
+    for name, pat in sigs:
+        try:
+            if re.search(pat, source_text, re.I):
+                if name not in report["detected"]:
+                    report["detected"].append(name)
+                if "Anti" in name:
+                    report["anti"].append(name)
+                # Capture snippets for the first few matches
+                for i, line in enumerate(lines):
+                    if re.search(pat, line, re.I):
+                        start = max(0, i-1)
+                        end = min(len(lines), i+2)
+                        snippet = '\n'.join(lines[start:end])
+                        if snippet not in report["snippets"]:
+                            report["snippets"].append(snippet)
+                        if len(report["snippets"]) >= 10:
+                            break
+        except re.error:
+            pass
 
     def clean_escapes(txt):
         txt = re.sub(r'\\x([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1), 16)), txt)
@@ -1666,7 +1674,6 @@ def deobfuscate_code(source_text):
         return False, ""
 
     buf = clean_escapes(source_text)
-    scan_signatures(buf)
     changed = True
     depth = 0
     while changed and depth < max_depth:
@@ -1698,10 +1705,13 @@ def deobfuscate_code(source_text):
         buf = re.sub(r'--.*$', '', buf, re.MULTILINE)
 
     buf = re.sub(r'\n\s*\n+', '\n', buf)
+    # Determine the primary obfuscator name (first detected)
+    primary = report["detected"][0] if report["detected"] else "Unknown"
     return {
         "result": buf.strip(),
         "layers_done": depth,
         "detected": report["detected"],
+        "obfuscator_name": primary,
         "anti_found": report["anti"],
         "steps": report["steps"],
         "snippets": report["snippets"][:10],
@@ -1710,14 +1720,14 @@ def deobfuscate_code(source_text):
 
 def make_result_embed(ctx, title: str, deobf: dict=None, raw: str=None):
     if deobf:
-        obf = deobf["obfuscator"]
+        obf_name = deobf.get("obfuscator_name", "Unknown")
         steps = "\n".join([f"• {s}" for s in deobf["steps"]]) if deobf["steps"] else "• No unpack steps"
         anti = "\n".join(deobf["anti_found"]) if deobf["anti_found"] else "• None detected"
         desc = f"""{ctx.author.mention}
-**Obfuscator:** `{obf['name']}`
-**Confidence:** `{obf['confidence']}%`
+**Obfuscator:** `{obf_name}`
+**Confidence:** `100%`
 **Status:** `{deobf['status']}`
-**Layers:** `{deobf['layers_reached']}/{deobf['max_layers']}`
+**Layers:** `{deobf['layers_reached']}/{8}`
 
 **Anti-Env / Anti-Tamper Found:**
 {anti}
@@ -1813,7 +1823,7 @@ async def get_command(ctx, *, link=None):
         success, result = await deobfuscate_prometheus_lua(content)
         if success:
             report = {
-                "obfuscator": {"name": "Prometheus", "confidence": 100},
+                "obfuscator_name": "Prometheus",
                 "steps": ["• Deobfuscated using Prometheus Lua function"],
                 "layers_reached": 1,
                 "max_layers": 1,
@@ -1835,7 +1845,7 @@ async def get_command(ctx, *, link=None):
         success, result = deobfuscate_wearedevs(content)
         if success:
             report = {
-                "obfuscator": {"name": "WeAreDevs", "confidence": 100},
+                "obfuscator_name": "WeAreDevs",
                 "steps": ["• Deobfuscated using WeAreDevs pattern"],
                 "layers_reached": 1,
                 "max_layers": 1,
@@ -1860,11 +1870,10 @@ async def get_command(ctx, *, link=None):
             timeout=timeout
         )
 
-        obfuscator_name = ", ".join(dec["detected"]) if dec["detected"] else "Standard Lua / No Obfuscation"
-        confidence = 100 if dec["detected"] else 100
+        obfuscator_name = dec["obfuscator_name"] if dec["obfuscator_name"] != "Unknown" else "Standard Lua / No Obfuscation"
         max_layers = 8
         report = {
-            "obfuscator": {"name": obfuscator_name, "confidence": confidence},
+            "obfuscator_name": obfuscator_name,
             "steps": [f"• {s}" for s in dec["steps"]],
             "layers_reached": dec["layers_done"],
             "max_layers": max_layers,
