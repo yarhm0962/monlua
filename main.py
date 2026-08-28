@@ -62,6 +62,8 @@ if not GUILD_ID:
 
 OWNER_ID = 1445289457866506290
 
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # optional
+
 mongo_client = None
 db = None
 settings_col = None
@@ -75,6 +77,7 @@ verified_users_col = None
 timer_delete_config_col = None
 talking_bot_config_col = None
 source_finder_config_col = None
+source_finder_logs_col = None
 
 try:
     mongo_client = MongoClient(MONGODB_URI, server_api=ServerApi('1'))
@@ -91,6 +94,7 @@ try:
     timer_delete_config_col = db["timer_delete_config"]
     talking_bot_config_col = db["talking_bot_config"]
     source_finder_config_col = db["source_finder_config"]
+    source_finder_logs_col = db["source_finder_logs"]
     print("✅ MongoDB Connected")
 except Exception as e:
     print(f"❌ MongoDB Error: {e}")
@@ -230,32 +234,63 @@ async def handle_source_finder(message, query):
         await message.channel.typing()
         encoded_query = quote_plus(query)
         url = f"https://api.github.com/search/code?q={encoded_query}+extension:lua+in:file&per_page=5"
-        headers = {"Accept": "application/vnd.github.v3+json"}
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "RblXLua-Bot/1.0"
+        }
+        if GITHUB_TOKEN:
+            headers["Authorization"] = f"token {GITHUB_TOKEN}"
+
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, headers=headers) as resp:
-                if resp.status != 200:
-                    await message.reply("❌ Failed to search GitHub. Please try again later.", mention_author=True)
-                    return
-                data = await resp.json()
-                items = data.get("items", [])
-                if not items:
-                    await message.reply(f"❌ No Lua source found for '{query}'.", mention_author=True)
-                    return
-                embed = discord.Embed(
-                    title=f"🔍 Lua Source Results for '{query}'",
-                    color=0x2b2d31
-                )
-                for i, item in enumerate(items[:5], 1):
-                    repo = item["repository"]["full_name"]
-                    path = item["path"]
-                    url = item["html_url"]
-                    embed.add_field(
-                        name=f"{i}. {path}",
-                        value=f"Repository: `{repo}`\n[View File]({url})",
-                        inline=False
-                    )
-                embed.set_footer(text="Powered by GitHub Search")
-                await message.reply(embed=embed, mention_author=True)
+            # Retry logic for rate limits
+            for attempt in range(3):
+                async with session.get(url, headers=headers) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        items = data.get("items", [])
+                        # Log search to MongoDB
+                        if source_finder_logs_col is not None:
+                            await asyncio.to_thread(source_finder_logs_col.insert_one, {
+                                "guild_id": message.guild.id,
+                                "user_id": message.author.id,
+                                "query": query,
+                                "results_count": len(items),
+                                "timestamp": datetime.utcnow()
+                            })
+                        if not items:
+                            await message.reply(f"❌ No Lua source found for '{query}'.", mention_author=True)
+                            return
+                        embed = discord.Embed(
+                            title=f"🔍 Lua Source Results for '{query}'",
+                            color=0x2b2d31
+                        )
+                        for i, item in enumerate(items[:5], 1):
+                            repo = item["repository"]["full_name"]
+                            path = item["path"]
+                            url = item["html_url"]
+                            embed.add_field(
+                                name=f"{i}. {path}",
+                                value=f"Repository: `{repo}`\n[View File]({url})",
+                                inline=False
+                            )
+                        embed.set_footer(text="Powered by GitHub Search")
+                        await message.reply(embed=embed, mention_author=True)
+                        return
+                    elif resp.status == 403 and "rate limit" in (await resp.text()).lower():
+                        # Rate limited, wait and retry
+                        if attempt < 2:
+                            await asyncio.sleep(2 ** attempt)
+                            continue
+                        else:
+                            await message.reply("❌ GitHub API rate limit exceeded. Please try again later.", mention_author=True)
+                            return
+                    elif resp.status == 404:
+                        await message.reply("❌ GitHub search endpoint not found. Please try again later.", mention_author=True)
+                        return
+                    else:
+                        # Other errors
+                        await message.reply(f"❌ GitHub search failed with status {resp.status}. Please try again later.", mention_author=True)
+                        return
     except Exception as e:
         print(f"Source finder error: {e}")
         await message.reply("❌ An error occurred while searching for sources.", mention_author=True)
