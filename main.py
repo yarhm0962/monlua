@@ -62,7 +62,7 @@ if not GUILD_ID:
 
 OWNER_ID = 1445289457866506290
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")  # optional
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 mongo_client = None
 db = None
@@ -229,68 +229,136 @@ async def handle_talking_bot(message):
     except Exception as e:
         print(f"Talking bot error: {e}")
 
+async def google_search(query: str, limit: int = 3) -> list:
+    search_query = f"lua {query} filetype:lua OR site:pastebin.com OR site:raw.githubusercontent.com"
+    url = "https://www.google.com/search"
+    params = {"q": search_query, "num": limit}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    }
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url, params=params, headers=headers, timeout=15) as resp:
+                if resp.status != 200:
+                    return []
+                html = await resp.text()
+                soup = BeautifulSoup(html, 'html.parser')
+                results = []
+                for g in soup.find_all('div', class_='g'):
+                    anchors = g.find_all('a')
+                    if not anchors:
+                        continue
+                    link = anchors[0].get('href')
+                    if not link or not link.startswith('/url?q='):
+                        continue
+                    match = re.search(r'/url\?q=([^&]+)', link)
+                    if not match:
+                        continue
+                    url = match.group(1)
+                    title_elem = g.find('h3')
+                    title = title_elem.get_text() if title_elem else "No title"
+                    snippet_elem = g.find('div', class_='VwiC3b')
+                    snippet = snippet_elem.get_text() if snippet_elem else ""
+                    if not (url.endswith('.lua') or 'pastebin.com' in url or 'raw.githubusercontent.com' in url):
+                        continue
+                    results.append((title, url, snippet))
+                    if len(results) >= limit:
+                        break
+                return results
+        except Exception as e:
+            print(f"Google search error: {e}")
+            return []
+
 async def handle_source_finder(message, query):
     try:
         await message.channel.typing()
         encoded_query = quote_plus(query)
-        url = f"https://api.github.com/search/code?q={encoded_query}+extension:lua+in:file&per_page=5"
+
+        github_url = f"https://api.github.com/search/code?q={encoded_query}+extension:lua+in:file&per_page=5"
         headers = {
             "Accept": "application/vnd.github.v3+json",
             "User-Agent": "RblXLua-Bot/1.0"
         }
+        github_results = []
+        token_used = False
         if GITHUB_TOKEN:
             headers["Authorization"] = f"token {GITHUB_TOKEN}"
+            token_used = True
 
         async with aiohttp.ClientSession() as session:
-            # Retry logic for rate limits
             for attempt in range(3):
-                async with session.get(url, headers=headers) as resp:
+                async with session.get(github_url, headers=headers) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        items = data.get("items", [])
-                        # Log search to MongoDB
-                        if source_finder_logs_col is not None:
-                            await asyncio.to_thread(source_finder_logs_col.insert_one, {
-                                "guild_id": message.guild.id,
-                                "user_id": message.author.id,
-                                "query": query,
-                                "results_count": len(items),
-                                "timestamp": datetime.utcnow()
-                            })
-                        if not items:
-                            await message.reply(f"❌ No Lua source found for '{query}'.", mention_author=True)
-                            return
-                        embed = discord.Embed(
-                            title=f"🔍 Lua Source Results for '{query}'",
-                            color=0x2b2d31
-                        )
-                        for i, item in enumerate(items[:5], 1):
-                            repo = item["repository"]["full_name"]
-                            path = item["path"]
-                            url = item["html_url"]
-                            embed.add_field(
-                                name=f"{i}. {path}",
-                                value=f"Repository: `{repo}`\n[View File]({url})",
-                                inline=False
-                            )
-                        embed.set_footer(text="Powered by GitHub Search")
-                        await message.reply(embed=embed, mention_author=True)
-                        return
-                    elif resp.status == 403 and "rate limit" in (await resp.text()).lower():
-                        # Rate limited, wait and retry
+                        github_results = data.get("items", [])
+                        break
+                    elif resp.status == 401 and token_used:
+                        headers.pop("Authorization", None)
+                        token_used = False
+                        continue
+                    elif resp.status == 403:
                         if attempt < 2:
                             await asyncio.sleep(2 ** attempt)
                             continue
                         else:
-                            await message.reply("❌ GitHub API rate limit exceeded. Please try again later.", mention_author=True)
-                            return
-                    elif resp.status == 404:
-                        await message.reply("❌ GitHub search endpoint not found. Please try again later.", mention_author=True)
-                        return
+                            break
                     else:
-                        # Other errors
-                        await message.reply(f"❌ GitHub search failed with status {resp.status}. Please try again later.", mention_author=True)
-                        return
+                        break
+
+        google_results = await google_search(query, limit=3)
+
+        combined = []
+        for item in github_results[:5]:
+            combined.append({
+                "source": "GitHub",
+                "repo": item["repository"]["full_name"],
+                "path": item["path"],
+                "url": item["html_url"],
+                "snippet": ""
+            })
+        for title, url, snippet in google_results:
+            combined.append({
+                "source": "Google",
+                "repo": title,
+                "path": url.split('/')[-1] if '/' in url else url,
+                "url": url,
+                "snippet": snippet[:100] + "..." if len(snippet) > 100 else snippet
+            })
+
+        if source_finder_logs_col is not None:
+            await asyncio.to_thread(source_finder_logs_col.insert_one, {
+                "guild_id": message.guild.id,
+                "user_id": message.author.id,
+                "query": query,
+                "results_count": len(combined),
+                "timestamp": datetime.utcnow()
+            })
+
+        if not combined:
+            await message.reply(f"❌ No Lua source found for '{query}'.", mention_author=True)
+            return
+
+        embed = discord.Embed(
+            title=f"🔍 Lua Source Results for '{query}'",
+            color=0x2b2d31
+        )
+        for i, res in enumerate(combined[:8], 1):
+            source = res["source"]
+            repo = res["repo"]
+            path = res["path"]
+            url = res["url"]
+            snippet = res.get("snippet", "")
+            value = f"Repository: `{repo}`\n[View File]({url})"
+            if snippet:
+                value += f"\n*{snippet}*"
+            embed.add_field(
+                name=f"{i}. [{source}] {path}",
+                value=value,
+                inline=False
+            )
+        embed.set_footer(text="Powered by GitHub & Google Search")
+        await message.reply(embed=embed, mention_author=True)
+
     except Exception as e:
         print(f"Source finder error: {e}")
         await message.reply("❌ An error occurred while searching for sources.", mention_author=True)
@@ -1443,13 +1511,13 @@ def extract_url(input_text: str) -> str:
 async def fetch_content(url: str) -> tuple[bool, str, str]:
     clean_url = extract_url(url)
     if not clean_url: return False, "", "No valid URL found"
-    
+
     proxies = [
         None,
         "https://api.allorigins.win/raw?url=",
         "https://corsproxy.io/?",
     ]
-    
+
     for attempt in range(3):
         for proxy in proxies:
             try:
