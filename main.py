@@ -20,7 +20,7 @@ import subprocess
 import tempfile
 from urllib.parse import urlparse, parse_qs, quote_plus
 from bson import ObjectId
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import marshal
 import codecs
 import zlib
@@ -31,6 +31,21 @@ import shutil
 from typing import Union, Optional, Sequence, Callable
 from bs4 import BeautifulSoup
 
+# === parse_duration defined early ===
+def parse_duration(duration_str: str) -> int:
+    duration_str = duration_str.lower().strip()
+    if duration_str.endswith("d"):
+        return int(duration_str[:-1]) * 86400
+    elif duration_str.endswith("h"):
+        return int(duration_str[:-1]) * 3600
+    elif duration_str.endswith("m"):
+        return int(duration_str[:-1]) * 60
+    elif duration_str.endswith("s"):
+        return int(duration_str[:-1])
+    else:
+        raise ValueError("Invalid duration format. Use e.g., 1d, 12h, 30m, 45s")
+
+# === Flask app ===
 app = Flask(__name__)
 
 @app.after_request
@@ -45,6 +60,7 @@ def home(): return "✅ RblXLua Service Running"
 @app.route('/ping')
 def ping(): return "pong"
 
+# === Environment variables ===
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     print("❌ TOKEN missing")
@@ -61,9 +77,9 @@ if not GUILD_ID:
     sys.exit(1)
 
 OWNER_ID = 1445289457866506290
-
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
+# === MongoDB ===
 mongo_client = None
 db = None
 settings_col = None
@@ -97,6 +113,7 @@ try:
 except Exception as e:
     print(f"❌ MongoDB Error: {e}")
 
+# === Discord bot ===
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -291,7 +308,7 @@ async def handle_source_finder(message, query):
                 "user_id": message.author.id,
                 "query": query,
                 "results_count": len(combined),
-                "timestamp": datetime.utcnow()
+                "timestamp": datetime.now(timezone.utc)
             })
 
         if not combined:
@@ -446,7 +463,7 @@ class PersistentTicketPanel(discord.ui.View):
                 if channel is None:
                     await asyncio.to_thread(tickets_col.update_one,
                         {"_id": existing["_id"]},
-                        {"$set": {"closed": True, "closed_at": datetime.utcnow(), "closed_by": None}}
+                        {"$set": {"closed": True, "closed_at": datetime.now(timezone.utc), "closed_by": None}}
                     )
                     existing = None
                 else:
@@ -498,7 +515,7 @@ class PersistentTicketPanel(discord.ui.View):
                 "user_id": interaction.user.id,
                 "claimed_by": None,
                 "closed": False,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
                 "panel_id": self.panel_id
             }
             result = await asyncio.to_thread(tickets_col.insert_one, ticket_doc)
@@ -681,7 +698,7 @@ class TicketView(discord.ui.View):
 
         await asyncio.to_thread(tickets_col.update_one,
             {"_id": ObjectId(ticket_id)},
-            {"$set": {"closed": True, "closed_at": datetime.utcnow(), "closed_by": interaction.user.id}}
+            {"$set": {"closed": True, "closed_at": datetime.now(timezone.utc), "closed_by": interaction.user.id}}
         )
 
         try:
@@ -783,7 +800,7 @@ async def ticket_command(
         "label_button": label_button,
         "label_emoji": label_emoji,
         "label_color": label_color,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.now(timezone.utc)
     }
     result = await asyncio.to_thread(ticket_panels_col.insert_one, panel_data)
     panel_id = str(result.inserted_id)
@@ -843,7 +860,7 @@ class VerificationButton(discord.ui.View):
             await interaction.followup.send(f"✅ You have been verified! You now have the {verified_role.mention} role.", ephemeral=True)
             await asyncio.to_thread(verified_users_col.update_one,
                 {"guild_id": guild.id, "user_id": member.id},
-                {"$set": {"verified_at": datetime.utcnow(), "verified_by": "button"}},
+                {"$set": {"verified_at": datetime.now(timezone.utc), "verified_by": "button"}},
                 upsert=True
             )
         except discord.Forbidden:
@@ -1016,11 +1033,7 @@ async def timer_delete_msg(
             await interaction.response.send_message("❌ You must provide a time duration when enabling timer delete.", ephemeral=True)
             return
 
-        try:
-            duration = parse_duration(time)
-        except ValueError as e:
-            await interaction.response.send_message(str(e), ephemeral=True)
-            return
+        duration = parse_duration(time)
 
         if duration < 5:
             await interaction.response.send_message("❌ Duration must be at least 5 seconds.", ephemeral=True)
@@ -1054,6 +1067,8 @@ async def timer_delete_msg(
         embed.set_footer(text=f"Duration: {duration}s")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    except ValueError as e:
+        await interaction.response.send_message(str(e), ephemeral=True)
     except Exception as e:
         print(f"Timer delete error: {e}")
         await interaction.response.send_message(f"❌ An error occurred: {str(e)[:200]}", ephemeral=True)
@@ -1795,7 +1810,7 @@ async def get_command(ctx, *, link=None):
             else:
                 await ctx.reply(embed=emb, mention_author=True)
             if logs_col is not None:
-                await asyncio.to_thread(logs_col.insert_one, {"uid": ctx.author.id, "act": "get", "url": extract_url(link if link else ""), "at": discord.utils.utcnow()})
+                await asyncio.to_thread(logs_col.insert_one, {"uid": ctx.author.id, "act": "get", "url": extract_url(link if link else ""), "at": datetime.now(timezone.utc)})
             return
 
         success, result = deobfuscate_wearedevs(content)
@@ -1817,7 +1832,7 @@ async def get_command(ctx, *, link=None):
             else:
                 await ctx.reply(embed=emb, mention_author=True)
             if logs_col is not None:
-                await asyncio.to_thread(logs_col.insert_one, {"uid": ctx.author.id, "act": "get", "url": extract_url(link if link else ""), "at": discord.utils.utcnow()})
+                await asyncio.to_thread(logs_col.insert_one, {"uid": ctx.author.id, "act": "get", "url": extract_url(link if link else ""), "at": datetime.now(timezone.utc)})
             return
 
         timeout = 180 if len(content) > 500000 else 60
@@ -1845,7 +1860,7 @@ async def get_command(ctx, *, link=None):
         else:
             await ctx.reply(embed=emb, mention_author=True)
         if logs_col is not None:
-            await asyncio.to_thread(logs_col.insert_one, {"uid": ctx.author.id, "act": "get", "url": extract_url(link if link else ""), "at": discord.utils.utcnow()})
+            await asyncio.to_thread(logs_col.insert_one, {"uid": ctx.author.id, "act": "get", "url": extract_url(link if link else ""), "at": datetime.now(timezone.utc)})
     except asyncio.TimeoutError:
         await proc.delete()
         await ctx.reply(embed=discord.Embed(title="⏱️ Timeout", color=0xe74c3c, description=f"{ctx.author.mention}\nDeobfuscation took too long. Try a smaller file."), mention_author=True)
