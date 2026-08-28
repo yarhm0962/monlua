@@ -980,17 +980,21 @@ async def verification_system(
 @bot.tree.command(name="timer_delete_msg", description="Set up a timer-based auto-delete for a channel")
 @app_commands.describe(
     channel="The text channel to monitor",
-    time="Cooldown duration (e.g., 10s, 5m, 1h, 1d)",
-    disable="Set to True to disable the timer delete for this channel"
+    action="Choose 'Enable' to set timer, 'Disable' to remove it",
+    time="Cooldown duration (e.g., 10s, 5m, 1h, 1d) – required when enabling"
 )
+@app_commands.choices(action=[
+    app_commands.Choice(name="Enable", value="enable"),
+    app_commands.Choice(name="Disable", value="disable")
+])
 @app_commands.default_permissions(administrator=True)
 async def timer_delete_msg(
     interaction: discord.Interaction,
     channel: discord.TextChannel,
-    time: str = None,
-    disable: bool = False
+    action: app_commands.Choice[str],
+    time: str = None
 ):
-    if disable:
+    if action.value == "disable":
         guild_id = interaction.guild.id
         channel_id = channel.id
         await asyncio.to_thread(timer_delete_config_col.delete_one, {"guild_id": guild_id, "channel_id": channel_id})
@@ -1006,7 +1010,7 @@ async def timer_delete_msg(
         return
 
     if not time:
-        await interaction.response.send_message("❌ Please provide a time duration when enabling timer delete.", ephemeral=True)
+        await interaction.response.send_message("❌ You must provide a time duration when enabling timer delete.", ephemeral=True)
         return
 
     try:
