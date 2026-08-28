@@ -197,7 +197,6 @@ async def handle_talking_bot(message):
             r'\bobfuscate\b': "I used to obfuscate, but now I focus on helping with code and exploits. What do you need?",
             r'\bticket\b': "For support tickets, use the `/ticket` command to create a ticket panel.",
             r'\bverify\b': "To verify, click the **Verify** button in the verification channel.",
-            r'\bbypass\b': "I can help bypass Delta links. Use `/bypass` with the URL.",
             r'\bauto[- ]delete\b': "I have both instant and timer-based auto-delete. Use `/auto_delete_messages` or `/timer_delete_msg`.",
             r'\bactive[- ]checker\b': "Set up active pings with `/active_checker`.",
             r'\bhelp\b': "I'm here to help! Ask me anything about Lua, exploits, or my commands.",
@@ -490,7 +489,7 @@ class TicketView(discord.ui.View):
             creator_mention = f"<@{ticket['user_id']}>"
             embed_claim = discord.Embed(
                 title="🖐️ Ticket Claimed",
-                description=f"{interaction.user.mention} Has been claimed your ticket.",
+                description=f"{interaction.user.mention} has claimed this ticket.",
                 color=discord.Color.green()
             )
             await channel.send(content=interaction.user.mention, embed=embed_claim)
@@ -534,7 +533,7 @@ class TicketView(discord.ui.View):
             except:
                 pass
 
-        await interaction.response.send_message("✅ Successfully Claimed the ticket", ephemeral=True)
+        await interaction.response.send_message("✅ Successfully claimed the ticket.", ephemeral=True)
 
     async def close_callback(self, interaction: discord.Interaction):
         ticket_id = interaction.data["custom_id"].split(":")[1]
@@ -579,7 +578,7 @@ class TicketView(discord.ui.View):
             if creator:
                 embed_dm = discord.Embed(
                     title="Ticket Closed",
-                    description=f"This ticket has been closed by {interaction.user.mention}.",
+                    description=f"Your ticket has been closed by {interaction.user.mention}.",
                     color=0x2b2d31
                 )
                 embed_dm.add_field(name="Ticket name", value=f"ticket-{creator.name}", inline=False)
@@ -902,8 +901,8 @@ async def verification_system(
     embed = discord.Embed(
         title="🔐 Server Verification",
         description=(
-            "Welcome to the server! We are glad to Have you here.\n\n"
-            "To gain access to all the channels and features, please verify yourself by clicking the **Verify** button below.\n"
+            "Welcome to the server! We are glad to have you here.\n\n"
+            "To gain access to all the channels and features, please verify yourself by clicking the **Verify** button below.\n\n"
             "This helps us keep the server safe and secure."
         ),
         color=0x1e90ff
@@ -911,7 +910,7 @@ async def verification_system(
     embed.set_footer(text="Verification System")
     embed.add_field(
         name="⏳ Verification Deadline",
-        value=f"All members must verify before <t:{deadline}:R>.\nAfter that, unverified members will receive the **Not Verified** role.",
+        value=f"All members must verify before <t:{deadline}:R>.\n\nAfter that, unverified members will receive the **Not Verified** role.",
         inline=False
     )
 
@@ -1085,7 +1084,7 @@ async def timer_delete_msg(
 
     embed = discord.Embed(
         title="✅ Timer Delete Set Up",
-        description=f"Messages in {channel.mention} will be deleted after **{time}** of inactivity.\n"
+        description=f"Messages in {channel.mention} will be deleted after **{time}** of inactivity.\n\n"
                     f"Any new message resets the timer.",
         color=0x90EE90
     )
@@ -1124,7 +1123,7 @@ async def talking_bot(
 
     embed = discord.Embed(
         title="✅ Talking Bot Enabled",
-        description=f"I will now reply to messages in {channel.mention}.\n"
+        description=f"I will now reply to messages in {channel.mention}.\n\n"
                     f"I can answer questions about Lua, exploits, Delta, and my commands.",
         color=0x90EE90
     )
@@ -1255,18 +1254,18 @@ async def show_commands(ctx):
         pages = [
             {
                 "title": "RblXLua Bot Commands (1/2)",
-                "description": f"Hello {ctx.author.mention}",
+                "description": f"Hello {ctx.author.mention}\n\nHere are the available commands:",
                 "fields": [
-                    {"name": "`Deobfuscator [.get]`", "value": "Fetch and deobfuscate code from a URL, attachment, or reply. Multi‑layer auto‑detection with retry and proxy fallback.", "inline": False},
+                    {"name": "`Deobfuscator [.get]`", "value": "Fetch and deobfuscate code from a URL, attachment, or reply.\nMulti‑layer auto‑detection with retry and proxy fallback.", "inline": False},
                     {"name": "`Ping [.ping]`", "value": "Check the bot's latency (prefix version).", "inline": False},
                     {"name": "`Database [.db]`", "value": "`status` – check MongoDB connection; `clear` (owner only) – wipe all data.", "inline": False},
                 ]
             },
             {
                 "title": "RblXLua Bot Commands (2/2)",
-                "description": f"Hello {ctx.author.mention}",
+                "description": f"Hello {ctx.author.mention}\n\nHere are the available slash commands:",
                 "fields": [
-                    {"name": "`Slash Commands`", "value": "`/ping` – Check bot latency\n`/channel_set` – Restrict commands to a channel\n`/channel_view` – Show current restriction\n`/channel_clear` – Remove restriction\n`/ticket` – Create ticket panel (admin)\n`/verification_system` – Set up verification with automatic 24h deadline (admin)\n`/verify` – Immediately apply Not Verified role to all unverified members (admin)\n`/active_checker` – Periodic @everyone ping (admin)\n`/bypass` – Bypass Delta/Platoboost/Lootlabs/Lootlink URLs\n`/auto_delete_messages` – Instant message deletion (admin)\n`/atd_view_channel` – View instant delete channels\n`/atd_remove_channel` – Remove instant delete channel (admin)\n`/timer_delete_msg` – Timer-based auto-delete (admin)\n`/talking_bot` – Enable talking bot in a channel (admin)", "inline": False},
+                    {"name": "`Slash Commands`", "value": "`/ping` – Check bot latency\n\n`/channel_set` – Restrict commands to a channel\n\n`/channel_view` – Show current restriction\n\n`/channel_clear` – Remove restriction\n\n`/ticket` – Create ticket panel (admin)\n\n`/verification_system` – Set up verification with automatic 24h deadline (admin)\n\n`/verify` – Immediately apply Not Verified role to all unverified members (admin)\n\n`/active_checker` – Periodic @everyone ping (admin)\n\n`/auto_delete_messages` – Instant message deletion (admin)\n\n`/atd_view_channel` – View instant delete channels\n\n`/atd_remove_channel` – Remove instant delete channel (admin)\n\n`/timer_delete_msg` – Timer-based auto-delete (admin)\n\n`/talking_bot` – Enable talking bot in a channel (admin)", "inline": False},
                 ]
             }
         ]
@@ -1383,156 +1382,6 @@ async def atd_remove_channel(interaction: discord.Interaction, channel: discord.
         color=0x90EE90
     )
     await interaction.response.send_message(embed=embed, ephemeral=True)
-
-def decode_base64_urlsafe(data: str) -> str:
-    data = data.strip()
-    data = data.replace('-', '+').replace('_', '/')
-    padding = 4 - (len(data) % 4)
-    if padding != 4:
-        data += '=' * padding
-    return base64.b64decode(data).decode('utf-8', errors='ignore')
-
-def extract_possible_keys(text: str) -> list:
-    patterns = [
-        r'FREE_[A-Za-z0-9_]{25,}',
-        r'PREMIUM_[A-Za-z0-9_]{25,}',
-        r'[A-Z0-9a-z]{8}-[A-Z0-9a-z]{4}-[A-Z0-9a-z]{4}-[A-Z0-9a-z]{4}-[A-Z0-9a-z]{12}',
-        r'\b[A-F0-9a-f]{32}\b',
-        r'\b[A-F0-9a-f]{64}\b'
-    ]
-    bad_words = ["cloudflare", "insights", "analytics", "cdn", "sha256", "uuid", "var", "function", "document"]
-    keys = []
-    for pat in patterns:
-        matches = re.findall(pat, text)
-        for m in matches:
-            if len(m) < 28:
-                continue
-            if any(bad in m.lower() for bad in bad_words):
-                continue
-            keys.append(m)
-    return keys
-
-async def bypass_url_python(url: str) -> str:
-    parsed = urlparse(url)
-    query = parse_qs(parsed.query)
-    param_names = ['d', 'r', 'token', 'key', 'data', 'url', 'u', 'redirect']
-    found_url = None
-    for name in param_names:
-        if name in query:
-            val = query[name][0]
-            try:
-                decoded = base64.b64decode(val).decode('utf-8', errors='ignore')
-                if decoded.startswith('http'):
-                    found_url = decoded
-                    break
-            except:
-                pass
-            try:
-                decoded = decode_base64_urlsafe(val)
-                if decoded.startswith('http'):
-                    found_url = decoded
-                    break
-            except:
-                pass
-            if val.startswith('http'):
-                found_url = val
-                break
-
-    if not found_url:
-        found_url = url
-
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-        }
-        async with session.get(found_url, headers=headers, allow_redirects=True, max_redirects=10) as resp:
-            if resp.status != 200:
-                raise Exception(f"HTTP {resp.status} when fetching URL.")
-            text = await resp.text(encoding='utf-8', errors='replace')
-
-    keys = extract_possible_keys(text)
-    if keys:
-        return keys[0]
-
-    keys = extract_possible_keys(url)
-    if keys:
-        return keys[0]
-
-    raise Exception("No key found in the page content or URL.")
-
-class BypassView(discord.ui.View):
-    def __init__(self, url):
-        super().__init__(timeout=60)
-        self.url = url
-
-    @discord.ui.button(label="Continue", style=discord.ButtonStyle.danger, emoji="⚠️")
-    async def continue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        button.disabled = True
-        await interaction.edit_original_response(view=self)
-
-        try:
-            possible_paths = [
-                os.path.join(os.getcwd(), "bypass.js"),
-                os.path.join(os.getcwd(), "Bypass-Delta-main", "bypass.js"),
-                os.path.join(os.path.dirname(__file__), "bypass.js"),
-                os.path.join(os.path.dirname(__file__), "Bypass-Delta-main", "bypass.js")
-            ]
-            script_path = None
-            for p in possible_paths:
-                if os.path.exists(p):
-                    script_path = p
-                    break
-
-            if script_path:
-                proc = await asyncio.create_subprocess_exec(
-                    "node", script_path, self.url,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-                stdout, stderr = await proc.communicate()
-
-                if proc.returncode != 0:
-                    error_msg = stderr.decode('utf-8').strip()
-                    raise Exception(f"Script error: {error_msg[:200]}")
-
-                output = stdout.decode('utf-8').strip()
-                try:
-                    result = json.loads(output)
-                    if result.get('success') and result.get('key'):
-                        key = result['key']
-                    else:
-                        raise Exception("No key in JSON response")
-                except json.JSONDecodeError:
-                    key = output
-
-                if not key or len(key) < 5:
-                    raise Exception("No valid key extracted")
-            else:
-                key = await bypass_url_python(self.url)
-
-            embed = discord.Embed(title="✅ Bypass Successful", color=discord.Color.purple())
-            embed.add_field(name="Original URL", value=f"```{self.url}```", inline=False)
-            embed.add_field(name="Extracted Key", value=f"```{key}```", inline=False)
-            await interaction.edit_original_response(embed=embed, view=None)
-
-        except Exception as e:
-            embed = discord.Embed(title="⚠️ Bypass Error", color=discord.Color.red())
-            embed.description = f"```{str(e)[:2000]}```"
-            await interaction.edit_original_response(embed=embed, view=None)
-
-@bot.tree.command(name="bypass", description="Bypass Delta, Platoboost, Lootlabs, or Lootlink URLs.")
-@app_commands.describe(url="The REQUIRED link you want to bypass")
-async def slash_bypass(interaction: discord.Interaction, url: str):
-    embed = discord.Embed(
-        title="⚠️ Warning",
-        description="You are putting your account at risk because Delta has a policy that there is a chance that your Delta or Account will be banned or timed out.",
-        color=discord.Color.purple()
-    )
-    view = BypassView(url)
-    await interaction.response.send_message(embed=embed, view=view, ephemeral=False)
 
 def decode_all_escapes(s: str) -> str:
     try:
@@ -2077,8 +1926,8 @@ async def on_ready():
                     new_embed = discord.Embed(
                         title="🔐 Server Verification",
                         description=(
-                            "Welcome to the server! We are glad to Have you here.\n\n"
-                            "To gain access to all the channels and features, please verify yourself by clicking the **Verify** button below.\n"
+                            "Welcome to the server! We are glad to have you here.\n\n"
+                            "To gain access to all the channels and features, please verify yourself by clicking the **Verify** button below.\n\n"
                             "This helps us keep the server safe and secure."
                         ),
                         color=0x1e90ff
@@ -2087,7 +1936,7 @@ async def on_ready():
                     if config.get("deadline"):
                         new_embed.add_field(
                             name="⏳ Verification Deadline",
-                            value=f"All members must verify before <t:{config['deadline']}:R>.\nAfter that, unverified members will receive the **Not Verified** role.",
+                            value=f"All members must verify before <t:{config['deadline']}:R>.\n\nAfter that, unverified members will receive the **Not Verified** role.",
                             inline=False
                         )
                     view = get_verification_view()
@@ -2113,7 +1962,7 @@ async def on_ready():
 
     asyncio.create_task(check_verification_deadlines())
 
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=".cmds | /ping | /channel_* | /ticket | /verification_system | /verify | /active_checker | /bypass | /auto_delete* | /timer_delete* | /talking_bot | .get"))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=".cmds | /ping | /channel_* | /ticket | /verification_system | /verify | /active_checker | /auto_delete* | /timer_delete* | /talking_bot | .get"))
     if db is not None:
         print(f"✅ Database Ready: {db.name}")
 
