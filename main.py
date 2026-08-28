@@ -696,7 +696,7 @@ class VerificationButton(discord.ui.View):
             label="Verify",
             style=discord.ButtonStyle.primary,
             custom_id="verify_button",
-            emoji="✅"
+            emoji="🔒"
         )
         button.callback = self.verify_callback
         self.add_item(button)
@@ -882,9 +882,12 @@ async def verification_system(
     tasks = [apply_permissions(ch) for ch in channels_to_update]
     await asyncio.gather(*tasks)
 
+    # Assign Not Verified role to members who don't have the verified role, excluding bots
     members_assigned = 0
     async for member in guild.fetch_members(limit=None):
         if member.bot:
+            continue
+        if select_role in member.roles:
             continue
         if not_verified_role not in member.roles:
             try:
@@ -941,85 +944,6 @@ async def verification_system(
         f"⏳ Deadline set: <t:{deadline}:R> (auto 24 hours)"
     )
     await interaction.followup.send(response, ephemeral=True)
-
-@bot.tree.command(name="verify", description="Immediately apply the Not Verified role to all unverified members.")
-@app_commands.default_permissions(administrator=True)
-async def verify_now(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True)
-    guild = interaction.guild
-
-    config = await asyncio.to_thread(verification_config_col.find_one, {"guild_id": guild.id})
-    if not config:
-        await interaction.followup.send("❌ Verification system is not set up in this server.", ephemeral=True)
-        return
-
-    not_verified_role_id = config["not_verified_role_id"]
-    verified_role_id = config["verified_role_id"]
-    not_verified_role = guild.get_role(not_verified_role_id)
-    verified_role = guild.get_role(verified_role_id)
-
-    if not not_verified_role or not verified_role:
-        await interaction.followup.send("❌ Verification roles are missing. Please re-run /verification_system.", ephemeral=True)
-        return
-
-    count = 0
-    async for member in guild.fetch_members(limit=None):
-        if member.bot:
-            continue
-        if verified_role in member.roles:
-            continue
-        if not_verified_role in member.roles:
-            continue
-        count += 1
-
-    if count == 0:
-        await interaction.followup.send("✅ All members are already verified. No action needed.", ephemeral=True)
-        return
-
-    total_seconds = count * 0.5
-    minutes = int(total_seconds // 60)
-    seconds = int(total_seconds % 60)
-    if minutes > 0:
-        time_str = f"{minutes} minute{'s' if minutes != 1 else ''} and {seconds} second{'s' if seconds != 1 else ''}"
-    else:
-        time_str = f"{seconds} second{'s' if seconds != 1 else ''}"
-
-    msg = f"🌀 Changing roles for **{count}** members. This will take **{time_str}**, in ideal condition. Please be patient."
-    await interaction.followup.send(msg, ephemeral=True)
-
-    asyncio.create_task(apply_verification_roles(interaction, guild, not_verified_role, verified_role, count))
-
-async def apply_verification_roles(interaction, guild, not_verified_role, verified_role, count):
-    assigned = 0
-    errors = 0
-    async for member in guild.fetch_members(limit=None):
-        if member.bot:
-            continue
-        if verified_role in member.roles:
-            continue
-        if not_verified_role in member.roles:
-            continue
-        try:
-            await member.add_roles(not_verified_role, reason="Manual verification apply")
-            assigned += 1
-            if assigned % 10 == 0:
-                await asyncio.sleep(0.5)
-        except discord.Forbidden:
-            errors += 1
-        except Exception as e:
-            print(f"Error assigning role to {member}: {e}")
-            errors += 1
-
-    try:
-        await interaction.followup.send(
-            f"✅ Finished applying roles.\n"
-            f"**Assigned:** {assigned} members\n"
-            f"**Errors:** {errors} members\n"
-            f"**Total processed:** {count} members",
-            ephemeral=True
-        )
-    except discord.HTTPException:
-        pass
 
 @bot.tree.command(name="timer_delete_msg", description="Set up a timer-based auto-delete for a channel")
 @app_commands.describe(
@@ -1271,7 +1195,7 @@ async def show_commands(ctx):
                 "title": "RblXLua Bot Commands (2/2)",
                 "description": f"Hello {ctx.author.mention}\n\nHere are the available slash commands:",
                 "fields": [
-                    {"name": "`Slash Commands`", "value": "`/ping` – Check bot latency\n\n`/channel_set` – Restrict commands to a channel\n\n`/channel_view` – Show current restriction\n\n`/channel_clear` – Remove restriction\n\n`/ticket` – Create ticket panel (admin)\n\n`/verification_system` – Set up verification with automatic 24h deadline (admin)\n\n`/verify` – Immediately apply Not Verified role to all unverified members (admin)\n\n`/active_checker` – Periodic @everyone ping (admin)\n\n`/auto_delete_messages` – Instant message deletion (admin)\n\n`/atd_view_channel` – View instant delete channels\n\n`/atd_remove_channel` – Remove instant delete channel (admin)\n\n`/timer_delete_msg` – Timer-based auto-delete (admin)\n\n`/talking_bot` – Enable talking bot in a channel (admin)", "inline": False},
+                    {"name": "`Slash Commands`", "value": "`/ping` – Check bot latency\n\n`/channel_set` – Restrict commands to a channel\n\n`/channel_view` – Show current restriction\n\n`/channel_clear` – Remove restriction\n\n`/ticket` – Create ticket panel (admin)\n\n`/verification_system` – Set up verification with automatic 24h deadline (admin)\n\n`/active_checker` – Periodic @everyone ping (admin)\n\n`/auto_delete_messages` – Instant message deletion (admin)\n\n`/atd_view_channel` – View instant delete channels\n\n`/atd_remove_channel` – Remove instant delete channel (admin)\n\n`/timer_delete_msg` – Timer-based auto-delete (admin)\n\n`/talking_bot` – Enable talking bot in a channel (admin)", "inline": False},
                 ]
             }
         ]
@@ -1578,7 +1502,6 @@ def deobfuscate_code(source_text):
     max_depth = 8
     report = {"detected": [], "steps": [], "anti": [], "snippets": []}
 
-    # Enhanced signature list with more obfuscators and unique markers
     sigs = [
         ("Prometheus", r'return\(function\(%.-%\)local L={'),
         ("Lunr", r'return\(function\(L,M,I\)'),
@@ -1602,7 +1525,6 @@ def deobfuscate_code(source_text):
                     report["detected"].append(name)
                 if "Anti" in name:
                     report["anti"].append(name)
-                # Capture snippets for the first few matches
                 for i, line in enumerate(lines):
                     if re.search(pat, line, re.I):
                         start = max(0, i-1)
@@ -1705,7 +1627,6 @@ def deobfuscate_code(source_text):
         buf = re.sub(r'--.*$', '', buf, re.MULTILINE)
 
     buf = re.sub(r'\n\s*\n+', '\n', buf)
-    # Determine the primary obfuscator name (first detected)
     primary = report["detected"][0] if report["detected"] else "Unknown"
     return {
         "result": buf.strip(),
@@ -1977,7 +1898,7 @@ async def on_ready():
 
     asyncio.create_task(check_verification_deadlines())
 
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=".cmds | /ping | /channel_* | /ticket | /verification_system | /verify | /active_checker | /auto_delete* | /timer_delete* | /talking_bot | .get"))
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=".cmds | /ping | /channel_* | /ticket | /verification_system | /active_checker | /auto_delete* | /timer_delete* | /talking_bot | .get"))
     if db is not None:
         print(f"✅ Database Ready: {db.name}")
 
