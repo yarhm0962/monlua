@@ -1200,7 +1200,7 @@ async def prefix_ping(ctx):
 
 class CmdsPaginationView(discord.ui.View):
     def __init__(self, pages, author_id):
-        super().__init__(timeout=120)
+        super().__init__(timeout=300)
         self.pages = pages
         self.current_page = 0
         self.author_id = author_id
@@ -1220,25 +1220,31 @@ class CmdsPaginationView(discord.ui.View):
 
     @discord.ui.button(label="◀ Back", style=discord.ButtonStyle.secondary, custom_id="cmds_back")
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("You are not the one who ran this command.", ephemeral=True)
-            return
-        if self.current_page == 0:
-            await interaction.response.send_message("You are already on the first page.", ephemeral=True)
-            return
-        self.current_page -= 1
-        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+        try:
+            if interaction.user.id != self.author_id:
+                await interaction.response.send_message("You are not the one who ran this command.", ephemeral=True)
+                return
+            if self.current_page == 0:
+                await interaction.response.send_message("You are already on the first page.", ephemeral=True)
+                return
+            self.current_page -= 1
+            await interaction.response.edit_message(embed=self.get_embed(), view=self)
+        except Exception:
+            await interaction.response.send_message("An error occurred while navigating.", ephemeral=True)
 
     @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.primary, custom_id="cmds_next")
     async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message("You are not the one who ran this command.", ephemeral=True)
-            return
-        if self.current_page == self.total_pages - 1:
-            await interaction.response.send_message("You are already on the last page.", ephemeral=True)
-            return
-        self.current_page += 1
-        await interaction.response.edit_message(embed=self.get_embed(), view=self)
+        try:
+            if interaction.user.id != self.author_id:
+                await interaction.response.send_message("You are not the one who ran this command.", ephemeral=True)
+                return
+            if self.current_page == self.total_pages - 1:
+                await interaction.response.send_message("You are already on the last page.", ephemeral=True)
+                return
+            self.current_page += 1
+            await interaction.response.edit_message(embed=self.get_embed(), view=self)
+        except Exception:
+            await interaction.response.send_message("An error occurred while navigating.", ephemeral=True)
 
     async def on_timeout(self):
         for child in self.children:
