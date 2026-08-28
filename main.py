@@ -31,7 +31,6 @@ import shutil
 from typing import Union, Optional, Sequence, Callable
 from bs4 import BeautifulSoup
 
-# === parse_duration defined early ===
 def parse_duration(duration_str: str) -> int:
     duration_str = duration_str.lower().strip()
     if duration_str.endswith("d"):
@@ -45,7 +44,6 @@ def parse_duration(duration_str: str) -> int:
     else:
         raise ValueError("Invalid duration format. Use e.g., 1d, 12h, 30m, 45s")
 
-# === Flask app ===
 app = Flask(__name__)
 
 @app.after_request
@@ -60,7 +58,6 @@ def home(): return "✅ RblXLua Service Running"
 @app.route('/ping')
 def ping(): return "pong"
 
-# === Environment variables ===
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     print("❌ TOKEN missing")
@@ -79,7 +76,6 @@ if not GUILD_ID:
 OWNER_ID = 1445289457866506290
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
-# === MongoDB ===
 mongo_client = None
 db = None
 settings_col = None
@@ -113,7 +109,6 @@ try:
 except Exception as e:
     print(f"❌ MongoDB Error: {e}")
 
-# === Discord bot ===
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -997,8 +992,8 @@ async def verification_system(
 @bot.tree.command(name="timer_delete_msg", description="Set up a timer-based auto-delete for a channel")
 @app_commands.describe(
     channel="The text channel to monitor",
-    action="Choose 'Enable' to set timer, 'Disable' to remove it (default: Enable)",
-    time="Cooldown duration (e.g., 10s, 5m, 1h, 1d) – required when enabling"
+    duration="Cooldown duration (e.g., 10s, 5m, 1h, 1d) – required",
+    action="Choose 'Enable' to set timer, 'Disable' to remove it (default: Enable)"
 )
 @app_commands.choices(action=[
     app_commands.Choice(name="Enable", value="enable"),
@@ -1008,8 +1003,8 @@ async def verification_system(
 async def timer_delete_msg(
     interaction: discord.Interaction,
     channel: discord.TextChannel,
-    action: Optional[app_commands.Choice[str]] = None,
-    time: Optional[str] = None
+    duration: str,
+    action: Optional[app_commands.Choice[str]] = None
 ):
     try:
         action_value = action.value if action else "enable"
@@ -1029,13 +1024,9 @@ async def timer_delete_msg(
             await interaction.response.send_message(embed=embed, ephemeral=True)
             return
 
-        if not time:
-            await interaction.response.send_message("❌ You must provide a time duration when enabling timer delete.", ephemeral=True)
-            return
+        duration_seconds = parse_duration(duration)
 
-        duration = parse_duration(time)
-
-        if duration < 5:
+        if duration_seconds < 5:
             await interaction.response.send_message("❌ Duration must be at least 5 seconds.", ephemeral=True)
             return
 
@@ -1052,19 +1043,19 @@ async def timer_delete_msg(
 
         await asyncio.to_thread(timer_delete_config_col.update_one,
             {"guild_id": guild_id, "channel_id": channel_id},
-            {"$set": {"duration_seconds": duration}},
+            {"$set": {"duration_seconds": duration_seconds}},
             upsert=True
         )
 
-        reset_timer_delete_timer(channel_id, duration)
+        reset_timer_delete_timer(channel_id, duration_seconds)
 
         embed = discord.Embed(
             title="✅ Timer Delete Set Up",
-            description=f"Messages in {channel.mention} will be deleted after **{time}** of inactivity.\n\n"
+            description=f"Messages in {channel.mention} will be deleted after **{duration}** of inactivity.\n\n"
                         f"Any new message resets the timer.",
             color=0x90EE90
         )
-        embed.set_footer(text=f"Duration: {duration}s")
+        embed.set_footer(text=f"Duration: {duration_seconds}s")
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     except ValueError as e:
